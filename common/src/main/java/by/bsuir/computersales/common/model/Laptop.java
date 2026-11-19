@@ -4,8 +4,7 @@ package by.bsuir.computersales.common.model;
 import java.math.BigDecimal;
 
 /**
- * Класс, описывающий ноутбук.
- * Наследуется от абстрактного класса Product.
+ * Класс ноутбука.
  */
 public class Laptop extends Product {
 
@@ -22,15 +21,16 @@ public class Laptop extends Product {
                   boolean active) {
 
         super(productId, category, manufacturer, model,
-                productName, specification, price,
-                stockQuantity, active);
+                productName, specification, price, stockQuantity, active);
     }
 
-    /**
-     * Возвращает тип товара.
-     */
     @Override
     public ProductType getProductType() {
         return ProductType.LAPTOP;
+    }
+
+    @Override
+    public String describe() {
+        return formatDescription("Ноутбук");
     }
 }

@@ -4,8 +4,7 @@ package by.bsuir.computersales.common.model;
 import java.math.BigDecimal;
 
 /**
- * Класс, описывающий настольный компьютер.
- * Наследуется от абстрактного класса Product.
+ * Класс настольного компьютера.
  */
 public class DesktopComputer extends Product {
 
@@ -22,15 +21,16 @@ public class DesktopComputer extends Product {
                            boolean active) {
 
         super(productId, category, manufacturer, model,
-                productName, specification, price,
-                stockQuantity, active);
+                productName, specification, price, stockQuantity, active);
     }
 
-    /**
-     * Возвращает тип товара.
-     */
     @Override
     public ProductType getProductType() {
         return ProductType.DESKTOP_COMPUTER;
+    }
+
+    @Override
+    public String describe() {
+        return formatDescription("Настольный компьютер");
     }
 }

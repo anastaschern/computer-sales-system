@@ -3,45 +3,26 @@ package by.bsuir.computersales.common.model;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.Objects;
 
 /**
- * Абстрактный родительский класс для всех видов товаров.
- * Содержит общие характеристики компьютерной техники.
+ * Абстрактный базовый класс компьютерного товара.
+ * Содержит общие характеристики всех товаров.
  */
 public abstract class Product implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    // Уникальный идентификатор товара
     private Long productId;
-
-    // Категория товара
     private Category category;
-
-    // Производитель
     private String manufacturer;
-
-    // Модель товара
     private String model;
-
-    // Наименование товара
     private String productName;
-
-    // Технические характеристики
     private String specification;
-
-    // Цена товара
     private BigDecimal price;
-
-    // Количество товара на складе
     private int stockQuantity;
-
-    // Активен ли товар
     private boolean active;
 
-    /**
-     * Конструктор родительского класса.
-     */
     public Product(Long productId,
                    Category category,
                    String manufacturer,
@@ -51,6 +32,18 @@ public abstract class Product implements Serializable {
                    BigDecimal price,
                    int stockQuantity,
                    boolean active) {
+
+        if (price == null) {
+            throw new IllegalArgumentException("Цена товара не может быть null");
+        }
+
+        if (price.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Цена товара не может быть отрицательной");
+        }
+
+        if (stockQuantity < 0) {
+            throw new IllegalArgumentException("Количество товара не может быть отрицательным");
+        }
 
         this.productId = productId;
         this.category = category;
@@ -63,11 +56,11 @@ public abstract class Product implements Serializable {
         this.active = active;
     }
 
-    /**
-     * Возвращает тип товара.
-     * Реализация будет определяться дочерними классами.
-     */
+    // Получение типа товара
     public abstract ProductType getProductType();
+
+    // Формирование краткого описания товара
+    public abstract String describe();
 
     public Long getProductId() {
         return productId;
@@ -122,6 +115,9 @@ public abstract class Product implements Serializable {
     }
 
     public void setPrice(BigDecimal price) {
+        if (price == null || price.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Цена должна быть неотрицательной");
+        }
         this.price = price;
     }
 
@@ -130,6 +126,9 @@ public abstract class Product implements Serializable {
     }
 
     public void setStockQuantity(int stockQuantity) {
+        if (stockQuantity < 0) {
+            throw new IllegalArgumentException("Количество товара не может быть отрицательным");
+        }
         this.stockQuantity = stockQuantity;
     }
 
@@ -139,5 +138,48 @@ public abstract class Product implements Serializable {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    @Override
+    public String toString() {
+        return describe();
+    }
+
+    /**
+     * Формирует общее текстовое описание товара.
+     *
+     * @param typeLabel название типа товара
+     * @return краткое описание товара
+     */
+    protected String formatDescription(String typeLabel) {
+        String manufacturerName = Objects.toString(manufacturer, "");
+        String modelName = Objects.toString(model, "");
+
+        String spec = (specification == null || specification.isBlank())
+                ? ""
+                : " – " + specification;
+
+        return typeLabel + " " + manufacturerName + " " + modelName + spec;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+
+        if (object == null || getClass() != object.getClass()) {
+            return false;
+        }
+
+        Product product = (Product) object;
+
+        return productId != null
+                && productId.equals(product.productId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getClass(), productId);
     }
 }
