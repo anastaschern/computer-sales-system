@@ -29,6 +29,12 @@ public class Request implements Serializable {
             String sessionToken,
             Serializable payload
     ) {
+        if (type == null) {
+            throw new IllegalArgumentException(
+                    "Тип запроса не может быть null"
+            );
+        }
+
         this.requestId = UUID.randomUUID();
         this.type = type;
         this.sessionToken = sessionToken;

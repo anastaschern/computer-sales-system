@@ -28,6 +28,7 @@ public enum RequestType {
     GET_CUSTOMER_BY_ID,
     CREATE_CUSTOMER,
     UPDATE_CUSTOMER,
+    DELETE_CUSTOMER,
 
     // Продажи
     GET_SALES,
@@ -38,6 +39,7 @@ public enum RequestType {
     // Рассрочка
     CREATE_INSTALLMENT_APPLICATION,
     GET_INSTALLMENT_APPLICATIONS,
+    GET_INSTALLMENT_APPLICATION_BY_ID,
     REVIEW_APPLICATION,
     GET_PAYMENT_SCHEDULE,
 
@@ -47,6 +49,7 @@ public enum RequestType {
 
     // Пользователи
     GET_USERS,
+    GET_USER_BY_ID,
     CREATE_USER,
     UPDATE_USER,
     BLOCK_USER,

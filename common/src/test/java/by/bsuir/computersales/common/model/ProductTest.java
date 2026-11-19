@@ -18,7 +18,8 @@ class ProductTest {
         return new Category(
                 1L,
                 "Ноутбуки",
-                "Портативные компьютеры"
+                "Портативные компьютеры",
+                ProductType.LAPTOP
         );
     }
 
@@ -26,15 +27,9 @@ class ProductTest {
     @Test
     void laptopShouldDescribeCorrectly() {
         Laptop laptop = new Laptop(
-                1L,
-                createCategory(),
-                "Lenovo",
-                "ThinkPad E14",
-                "Ноутбук Lenovo ThinkPad E14",
-                "16 GB RAM, 512 GB SSD",
-                new BigDecimal("2500.00"),
-                10,
-                true
+                1L, createCategory(), "Lenovo", "ThinkPad E14",
+                "Ноутбук Lenovo ThinkPad E14", "16 GB RAM, 512 GB SSD",
+                new BigDecimal("2500.00"), 10, true
         );
 
         assertEquals(
@@ -47,15 +42,9 @@ class ProductTest {
     @Test
     void desktopComputerShouldDescribeCorrectly() {
         DesktopComputer computer = new DesktopComputer(
-                2L,
-                createCategory(),
-                "HP",
-                "ProDesk 400",
-                "Настольный компьютер HP",
-                "Intel Core i5, 16 GB RAM",
-                new BigDecimal("1800.00"),
-                5,
-                true
+                2L, createCategory(), "HP", "ProDesk 400",
+                "Настольный компьютер HP", "Intel Core i5, 16 GB RAM",
+                new BigDecimal("1800.00"), 5, true
         );
 
         assertEquals(
@@ -68,15 +57,9 @@ class ProductTest {
     @Test
     void monitorShouldDescribeCorrectly() {
         Monitor monitor = new Monitor(
-                3L,
-                createCategory(),
-                "Samsung",
-                "S24C",
-                "Монитор Samsung",
-                "24 дюйма, Full HD",
-                new BigDecimal("650.00"),
-                7,
-                true
+                3L, createCategory(), "Samsung", "S24C",
+                "Монитор Samsung", "24 дюйма, Full HD",
+                new BigDecimal("650.00"), 7, true
         );
 
         assertEquals(
@@ -89,15 +72,9 @@ class ProductTest {
     @Test
     void peripheralDeviceShouldDescribeCorrectly() {
         PeripheralDevice device = new PeripheralDevice(
-                4L,
-                createCategory(),
-                "Logitech",
-                "M185",
-                "Мышь Logitech",
-                "Беспроводная мышь",
-                new BigDecimal("50.00"),
-                20,
-                true
+                4L, createCategory(), "Logitech", "M185",
+                "Мышь Logitech", "Беспроводная мышь",
+                new BigDecimal("50.00"), 20, true
         );
 
         assertEquals(
@@ -110,39 +87,24 @@ class ProductTest {
     @Test
     void laptopShouldDescribeWithoutSpecification() {
         Laptop laptop = new Laptop(
-                5L,
-                createCategory(),
-                "Lenovo",
-                "IdeaPad",
-                "Ноутбук Lenovo",
-                null,
-                new BigDecimal("1500.00"),
-                3,
-                true
+                5L, createCategory(), "Lenovo", "IdeaPad",
+                "Ноутбук Lenovo", null,
+                new BigDecimal("1500.00"), 3, true
         );
 
-        assertEquals(
-                "Ноутбук Lenovo IdeaPad",
-                laptop.describe()
-        );
+        assertEquals("Ноутбук Lenovo IdeaPad", laptop.describe());
     }
 
     // Проверка обработки пустых производителя и модели
     @Test
     void laptopShouldDescribeWithoutManufacturerAndModel() {
         Laptop laptop = new Laptop(
-                6L,
-                createCategory(),
-                null,
-                null,
-                "Ноутбук",
-                null,
-                new BigDecimal("1500.00"),
-                3,
-                true
+                6L, createCategory(), null, null,
+                "Ноутбук", null,
+                new BigDecimal("1500.00"), 3, true
         );
 
-        assertEquals("Ноутбук  ", laptop.describe());
+        assertEquals("Ноутбук", laptop.describe());
     }
 
     // Проверка отклонения отрицательной цены
@@ -151,15 +113,9 @@ class ProductTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new Laptop(
-                        7L,
-                        createCategory(),
-                        "Lenovo",
-                        "ThinkPad",
-                        "Ноутбук",
-                        "16 GB RAM",
-                        new BigDecimal("-100.00"),
-                        5,
-                        true
+                        7L, createCategory(), "Lenovo", "ThinkPad",
+                        "Ноутбук", "16 GB RAM",
+                        new BigDecimal("-100.00"), 5, true
                 )
         );
     }
@@ -170,15 +126,9 @@ class ProductTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new Laptop(
-                        8L,
-                        createCategory(),
-                        "Lenovo",
-                        "ThinkPad",
-                        "Ноутбук",
-                        "16 GB RAM",
-                        new BigDecimal("1000.00"),
-                        -5,
-                        true
+                        8L, createCategory(), "Lenovo", "ThinkPad",
+                        "Ноутбук", "16 GB RAM",
+                        new BigDecimal("1000.00"), -5, true
                 )
         );
     }
@@ -224,15 +174,9 @@ class ProductTest {
     @Test
     void laptopShouldBeSerializedAndDeserialized() throws Exception {
         Laptop original = new Laptop(
-                15L,
-                createCategory(),
-                "Lenovo",
-                "ThinkPad E14",
-                "Ноутбук Lenovo ThinkPad E14",
-                "16 GB RAM, 512 GB SSD",
-                new BigDecimal("2500.00"),
-                10,
-                true
+                15L, createCategory(), "Lenovo", "ThinkPad E14",
+                "Ноутбук Lenovo ThinkPad E14", "16 GB RAM, 512 GB SSD",
+                new BigDecimal("2500.00"), 10, true
         );
 
         ByteArrayOutputStream byteArrayOutputStream =
@@ -240,7 +184,6 @@ class ProductTest {
 
         try (ObjectOutputStream outputStream =
                      new ObjectOutputStream(byteArrayOutputStream)) {
-
             outputStream.writeObject(original);
         }
 
@@ -248,7 +191,6 @@ class ProductTest {
 
         try (ObjectInputStream inputStream = new ObjectInputStream(
                 new ByteArrayInputStream(byteArrayOutputStream.toByteArray()))) {
-
             restored = (Laptop) inputStream.readObject();
         }
 
@@ -258,6 +200,7 @@ class ProductTest {
         assertEquals(original.getPrice(), restored.getPrice());
 
         assertNotNull(restored.getCategory());
+
         assertEquals(
                 original.getCategory().getCategoryName(),
                 restored.getCategory().getCategoryName()

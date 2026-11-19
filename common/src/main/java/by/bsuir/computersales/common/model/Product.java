@@ -151,15 +151,26 @@ public abstract class Product implements Serializable {
      * @param typeLabel название типа товара
      * @return краткое описание товара
      */
+
     protected String formatDescription(String typeLabel) {
-        String manufacturerName = Objects.toString(manufacturer, "");
-        String modelName = Objects.toString(model, "");
+        StringBuilder sb = new StringBuilder(typeLabel);
 
-        String spec = (specification == null || specification.isBlank())
-                ? ""
-                : " – " + specification;
+        // Добавляем производителя, если он указан
+        if (manufacturer != null && !manufacturer.isBlank()) {
+            sb.append(" ").append(manufacturer.trim());
+        }
 
-        return typeLabel + " " + manufacturerName + " " + modelName + spec;
+        // Добавляем модель, если она указана
+        if (model != null && !model.isBlank()) {
+            sb.append(" ").append(model.trim());
+        }
+
+        // Добавляем спецификацию, если она указана
+        if (specification != null && !specification.isBlank()) {
+            sb.append(" – ").append(specification.trim());
+        }
+
+        return sb.toString();
     }
 
     @Override

@@ -75,4 +75,17 @@ public class User implements Serializable {
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
+    /**
+     * Возвращает строковое представление пользователя.
+     */
+    @Override
+    public String toString() {
+        return "User["
+                + "userId=" + userId
+                + ", login='" + login + '\''
+                + ", role=" + role
+                + ", active=" + active
+                + ", createdAt=" + createdAt
+                + ']';
+    }
 }

@@ -24,6 +24,30 @@ public class Response implements Serializable {
             String message,
             Serializable payload
     ) {
+        if (requestId == null) {
+            throw new IllegalArgumentException(
+                    "Идентификатор запроса не может быть null"
+            );
+        }
+
+        if (status == null) {
+            throw new IllegalArgumentException(
+                    "Статус ответа не может быть null"
+            );
+        }
+
+        if (status == ResponseStatus.SUCCESS && errorCode != null) {
+            throw new IllegalArgumentException(
+                    "Успешный ответ не должен содержать код ошибки"
+            );
+        }
+
+        if (status != ResponseStatus.SUCCESS && errorCode == null) {
+            throw new IllegalArgumentException(
+                    "Ответ с ошибкой должен содержать код ошибки"
+            );
+        }
+
         this.requestId = requestId;
         this.status = status;
         this.errorCode = errorCode;
