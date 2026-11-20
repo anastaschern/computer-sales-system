@@ -2,7 +2,7 @@
 package by.bsuir.computersales.common.model;
 
 import java.io.Serializable;
-import java.util.Objects;
+
 
 /**
  * Модель категории товаров.
@@ -60,10 +60,13 @@ public class Category implements Serializable {
     }
 
     public void setProductType(ProductType productType) {
-        this.productType = Objects.requireNonNull(
-                productType,
-                "Тип товара не может быть null"
-        );
+        if (productType == null) {
+            throw new IllegalArgumentException(
+                    "Тип товара не может быть null"
+            );
+        }
+
+        this.productType = productType;
     }
 
     @Override
