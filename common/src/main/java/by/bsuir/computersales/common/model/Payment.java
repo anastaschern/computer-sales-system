@@ -13,6 +13,7 @@ public class Payment implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    private String referenceNumber;
     private Long paymentId;
     private Sale sale;
     private InstallmentApplication application;
@@ -26,6 +27,37 @@ public class Payment implements Serializable {
         this.paymentDate = LocalDateTime.now();
     }
 
+    public Payment(
+            Long paymentId,
+            Sale sale,
+            InstallmentApplication application,
+            Integer paymentNumber,
+            LocalDateTime paymentDate,
+            BigDecimal amount,
+            PaymentMethod paymentMethod,
+            PaymentPurpose paymentPurpose,
+            String referenceNumber) {
+
+        this(
+                paymentId,
+                sale,
+                application,
+                paymentNumber,
+                paymentDate,
+                amount,
+                paymentMethod,
+                paymentPurpose
+        );
+
+        this.referenceNumber = referenceNumber;
+    }
+    public String getReferenceNumber() {
+        return referenceNumber;
+    }
+
+    public void setReferenceNumber(String referenceNumber) {
+        this.referenceNumber = referenceNumber;
+    }
     public Payment(
             Long paymentId,
             Sale sale,
