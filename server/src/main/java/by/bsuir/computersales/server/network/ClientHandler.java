@@ -15,7 +15,7 @@ import by.bsuir.computersales.server.exception.AppException;
 import by.bsuir.computersales.server.exception.AuthenticationException;
 import by.bsuir.computersales.server.service.AuthService;
 
-import java.io.ArrayList;
+import java.util.ArrayList;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InvalidClassException;
