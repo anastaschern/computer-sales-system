@@ -78,7 +78,9 @@ public class PasswordHasher {
 
         String[] parts = storedHash.split("\\$", -1);
 
-        if (parts.length != 4 || !HASH_PREFIX.equals(parts[0])) {
+        if (parts.length != 4
+                || (!HASH_PREFIX.equals(parts[0])
+                && !"PBKDF2WithHmacSHA256".equals(parts[0]))) {
             return false;
         }
 
