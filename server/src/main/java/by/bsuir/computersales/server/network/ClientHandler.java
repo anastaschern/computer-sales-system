@@ -14,6 +14,7 @@ import by.bsuir.computersales.common.protocol.Response;
 import by.bsuir.computersales.server.exception.AppException;
 import by.bsuir.computersales.server.exception.AuthenticationException;
 import by.bsuir.computersales.server.service.AuthService;
+import by.bsuir.computersales.server.dao.ProductDao;
 
 import java.util.ArrayList;
 import java.io.EOFException;
@@ -41,6 +42,7 @@ public class ClientHandler implements Runnable {
 
     private final Socket clientSocket;
     private final AuthService authService;
+    private final ProductDao productDao;
 
     private volatile boolean running = true;
 
@@ -50,17 +52,34 @@ public class ClientHandler implements Runnable {
      * Используется для обратной совместимости
      * с существующими сетевыми тестами.
      */
+    /**
+     * Создаёт обработчик без сервисов.
+     * Используется для обратной совместимости с тестами.
+     */
     public ClientHandler(Socket clientSocket) {
-        this(clientSocket, null);
+        this(clientSocket, null, null);
     }
 
     /**
      * Создаёт обработчик с сервисом авторизации.
+     * Используется для обратной совместимости.
+     */
+    public ClientHandler(Socket clientSocket, AuthService authService) {
+        this(clientSocket, authService, null);
+    }
+
+    /**
+     * Создаёт обработчик с сервисами авторизации и каталога товаров.
      *
      * @param clientSocket сокет клиента
      * @param authService сервис авторизации
+     * @param productDao DAO для работы с товарами
      */
-    public ClientHandler(Socket clientSocket, AuthService authService) {
+    public ClientHandler(
+            Socket clientSocket,
+            AuthService authService,
+            ProductDao productDao
+    ) {
         if (clientSocket == null) {
             throw new IllegalArgumentException(
                     "Сокет клиента не должен быть null"
@@ -69,8 +88,8 @@ public class ClientHandler implements Runnable {
 
         this.clientSocket = clientSocket;
         this.authService = authService;
+        this.productDao = productDao;
     }
-
     @Override
     public void run() {
         try (
