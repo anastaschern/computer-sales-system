@@ -2,6 +2,7 @@
 package by.bsuir.computersales.common.model;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 
 /**
@@ -72,5 +73,25 @@ public class Category implements Serializable {
     @Override
     public String toString() {
         return categoryName;
+    }
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+
+        if (object == null || getClass() != object.getClass()) {
+            return false;
+        }
+
+        Category category = (Category) object;
+
+        return categoryId != null
+                && categoryId.equals(category.categoryId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(categoryId);
     }
 }

@@ -60,4 +60,43 @@ class CategoryTest {
 
         assertEquals("Ноутбуки", category.toString());
     }
+    @Test
+    void shouldConsiderCategoriesWithSameIdEqual() {
+        Category first = new Category(
+                1L, "Ноутбуки", "Описание 1", ProductType.LAPTOP
+        );
+
+        Category second = new Category(
+                1L, "Другие ноутбуки", "Описание 2", ProductType.LAPTOP
+        );
+
+        assertEquals(first, second);
+        assertEquals(first.hashCode(), second.hashCode());
+    }
+
+    @Test
+    void shouldConsiderCategoriesWithDifferentIdsNotEqual() {
+        Category first = new Category(
+                1L, "Ноутбуки", "Описание", ProductType.LAPTOP
+        );
+
+        Category second = new Category(
+                2L, "Ноутбуки", "Описание", ProductType.LAPTOP
+        );
+
+        assertNotEquals(first, second);
+    }
+
+    @Test
+    void shouldNotConsiderDifferentCategoriesWithoutIdEqual() {
+        Category first = new Category(
+                null, "Ноутбуки", "Описание", ProductType.LAPTOP
+        );
+
+        Category second = new Category(
+                null, "Ноутбуки", "Описание", ProductType.LAPTOP
+        );
+
+        assertNotEquals(first, second);
+    }
 }
