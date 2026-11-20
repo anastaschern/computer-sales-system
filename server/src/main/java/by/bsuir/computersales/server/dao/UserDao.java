@@ -33,4 +33,15 @@ public interface UserDao {
      * @return найденный пользователь или пустой Optional
      */
     Optional<User> findByLogin(String login);
+
+    /**
+     * Находит пользователя и хеш его пароля по логину.
+     *
+     * Метод предназначен для серверной авторизации.
+     * Хеш пароля не включается в модель User.
+     *
+     * @param login логин пользователя
+     * @return учётные данные или пустой Optional
+     */
+    Optional<UserCredentials> findCredentialsByLogin(String login);
 }
