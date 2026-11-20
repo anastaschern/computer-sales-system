@@ -1,12 +1,13 @@
 
 package by.bsuir.computersales.common.dto;
 
-import by.bsuir.computersales.common.util.ValidationUtils;
-
 import java.io.Serializable;
 
 /**
  * Данные для авторизации пользователя.
+ *
+ * При входе проверяется только наличие логина и пароля.
+ * Проверка правильности учётных данных выполняется сервером.
  */
 public record LoginRequestData(
         String login,
@@ -16,8 +17,17 @@ public record LoginRequestData(
     private static final long serialVersionUID = 1L;
 
     public LoginRequestData {
-        ValidationUtils.validateLogin(login);
-        ValidationUtils.validatePassword(password);
+        if (login == null || login.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Логин не может быть пустым"
+            );
+        }
+
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Пароль не может быть пустым"
+            );
+        }
     }
 
     /**
