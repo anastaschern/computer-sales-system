@@ -1,5 +1,5 @@
 
-package by.bsuir.computersales.server;
+package by.bsuir.computersales.server.factory;
 
 import by.bsuir.computersales.common.model.Category;
 import by.bsuir.computersales.common.model.PeripheralDevice;

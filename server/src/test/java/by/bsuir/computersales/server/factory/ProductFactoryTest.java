@@ -8,8 +8,6 @@ import by.bsuir.computersales.common.model.Monitor;
 import by.bsuir.computersales.common.model.PeripheralDevice;
 import by.bsuir.computersales.common.model.Product;
 import by.bsuir.computersales.common.model.ProductType;
-import by.bsuir.computersales.server.LaptopCreator;
-import by.bsuir.computersales.server.ProductFactory;
 import by.bsuir.computersales.server.exception.ValidationException;
 
 import org.junit.jupiter.api.Test;
