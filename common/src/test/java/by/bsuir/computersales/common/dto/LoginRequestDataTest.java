@@ -75,5 +75,17 @@ class LoginRequestDataTest {
         assertTrue(result.contains("password=***"));
         assertTrue(result.contains("admin"));
     }
+    @Test
+    void shouldAcceptShortLogin() {
+        assertDoesNotThrow(
+                () -> new LoginRequestData("ab", "password123")
+        );
+    }
 
+    @Test
+    void shouldAcceptShortPassword() {
+        assertDoesNotThrow(
+                () -> new LoginRequestData("user123", "123")
+        );
+    }
 }
