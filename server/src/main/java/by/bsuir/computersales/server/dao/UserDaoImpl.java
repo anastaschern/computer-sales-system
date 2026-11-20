@@ -69,6 +69,24 @@ public class UserDaoImpl implements UserDao {
             WHERE u.login = ?
             """;
 
+    /**
+     * SQL-запрос для получения пользователя и хеша его пароля.
+     * Используется только при авторизации.
+     */
+    private static final String FIND_CREDENTIALS_BY_LOGIN_SQL = """
+            SELECT u.user_id,
+                   u.login,
+                   u.password_hash,
+                   u.is_active,
+                   u.created_at,
+                   r.role_id,
+                   r.role_name,
+                   r.description
+            FROM users u
+            JOIN roles r ON u.role_id = r.role_id
+            WHERE u.login = ?
+            """;
+
     private final DatabaseManager databaseManager;
 
     /**
@@ -167,6 +185,44 @@ public class UserDaoImpl implements UserDao {
         } catch (SQLException exception) {
             throw new DataAccessException(
                     "Не удалось найти пользователя по логину",
+                    exception
+            );
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Optional<UserCredentials> findCredentialsByLogin(String login) {
+        if (login == null || login.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Логин пользователя не должен быть пустым"
+            );
+        }
+
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(FIND_CREDENTIALS_BY_LOGIN_SQL)) {
+
+            statement.setString(1, login);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    User user = mapRow(resultSet);
+                    String passwordHash = resultSet.getString("password_hash");
+
+                    return Optional.of(
+                            new UserCredentials(user, passwordHash)
+                    );
+                }
+
+                return Optional.empty();
+            }
+
+        } catch (SQLException exception) {
+            throw new DataAccessException(
+                    "Не удалось получить учётные данные пользователя",
                     exception
             );
         }
