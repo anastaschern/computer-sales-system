@@ -7,6 +7,8 @@ import by.bsuir.computersales.server.database.DatabaseManager;
 import by.bsuir.computersales.server.security.PasswordHasher;
 import by.bsuir.computersales.server.security.SessionManager;
 import by.bsuir.computersales.server.service.AuthService;
+import by.bsuir.computersales.server.dao.ProductDaoImpl;
+import by.bsuir.computersales.server.dao.ProductDao;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -16,6 +18,7 @@ import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
 
 /**
  * Главный класс многопоточного сервера.
@@ -30,6 +33,7 @@ public class ServerMain {
     private final DatabaseManager databaseManager;
     private final ExecutorService clientPool;
     private final AuthService authService;
+    private final ProductDao productDao;
 
     private ServerSocket serverSocket;
     private volatile boolean running;
@@ -53,6 +57,10 @@ public class ServerMain {
 
         // Создаём DAO для работы с пользователями.
         UserDaoImpl userDao = new UserDaoImpl(databaseManager);
+
+        // Создаём DAO для работы с каталогом товаров.
+        // Создаём DAO для работы с каталогом товаров.
+        this.productDao = new ProductDaoImpl(databaseManager);
 
         // Создаём средство проверки паролей.
         PasswordHasher passwordHasher = new PasswordHasher();
@@ -118,7 +126,11 @@ public class ServerMain {
                 // Передаём клиенту общий сервис авторизации.
                 // Каждый ClientHandler работает в отдельном потоке.
                 clientPool.execute(
-                        new ClientHandler(clientSocket, authService)
+                        new ClientHandler(
+                                clientSocket,
+                                authService,
+                                productDao
+                        )
                 );
             }
 
