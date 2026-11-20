@@ -8,33 +8,30 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Интерфейс доступа к данным ролей пользователей.
- *
- * Определяет операции получения ролей из базы данных.
- * Конкретная реализация будет использовать JDBC.
+ * Интерфейс доступа к данным о ролях пользователей.
  */
 public interface RoleDao {
 
     /**
-     * Возвращает список всех ролей.
+     * Получает список всех ролей.
      *
      * @return список ролей
      */
     List<Role> findAll();
 
     /**
-     * Ищет роль по идентификатору.
+     * Находит роль по идентификатору.
      *
      * @param roleId идентификатор роли
-     * @return найденная роль или Optional.empty()
+     * @return найденная роль или пустой Optional
      */
     Optional<Role> findById(Long roleId);
 
     /**
-     * Ищет роль по типу.
+     * Находит роль по её типу.
      *
      * @param roleType тип роли
-     * @return найденная роль или Optional.empty()
+     * @return найденная роль или пустой Optional
      */
     Optional<Role> findByType(RoleType roleType);
 }
