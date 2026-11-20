@@ -7,6 +7,11 @@ import by.bsuir.computersales.common.protocol.RequestType;
 import by.bsuir.computersales.common.protocol.Response;
 import by.bsuir.computersales.common.protocol.ResponseStatus;
 import org.junit.jupiter.api.Test;
+import by.bsuir.computersales.common.dto.CreateSaleData;
+import by.bsuir.computersales.common.dto.SaleItemData;
+import by.bsuir.computersales.common.model.PaymentType;
+
+import java.util.List;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -127,6 +132,82 @@ class ClientHandlerTest {
     }
 
     /**
+     * Проверяет, что сервер принимает DTO продажи
+     * через фильтр десериализации.
+     */
+    @Test
+    void shouldAcceptCreateSaleDataThroughInputFilter() throws Exception {
+        try (TestConnection connection = openConnection()) {
+
+            CreateSaleData saleData = new CreateSaleData(
+                    10L,
+                    PaymentType.FULL_PAYMENT,
+                    List.of(
+                            new SaleItemData(1L, 2),
+                            new SaleItemData(2L, 3)
+                    )
+            );
+
+            Request request = new Request(
+                    RequestType.CREATE_SALE,
+                    null,
+                    saleData
+            );
+
+            connection.output.writeObject(request);
+            connection.output.flush();
+
+            Response response =
+                    (Response) connection.input.readObject();
+
+            assertNotNull(response);
+
+            assertEquals(
+                    request.getRequestId(),
+                    response.getRequestId()
+            );
+
+            // BUSINESS_RULE означает, что объект был принят,
+            // десериализован и дошёл до обработки запроса.
+            assertEquals(
+                    ResponseStatus.ERROR,
+                    response.getStatus()
+            );
+
+            assertEquals(
+                    ErrorCode.BUSINESS_RULE,
+                    response.getErrorCode()
+            );
+
+            // Корректно завершаем соединение.
+            Request disconnectRequest = new Request(
+                    RequestType.DISCONNECT,
+                    null,
+                    null
+            );
+
+            connection.output.writeObject(disconnectRequest);
+            connection.output.flush();
+
+            Response disconnectResponse =
+                    (Response) connection.input.readObject();
+
+            assertEquals(
+                    ResponseStatus.SUCCESS,
+                    disconnectResponse.getStatus()
+            );
+
+            connection.handlerThread.join(3000);
+
+            assertFalse(
+                    connection.handlerThread.isAlive(),
+                    "Поток обработки клиента должен завершиться"
+            );
+        }
+    }
+
+
+    /**
      * Проверяет защиту конструктора от null вместо сокета.
      */
     @Test
@@ -135,6 +216,7 @@ class ClientHandlerTest {
                 IllegalArgumentException.class,
                 () -> new ClientHandler(null)
         );
+
     }
 
     /**

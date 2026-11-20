@@ -2,6 +2,11 @@
 package by.bsuir.computersales.common.protocol;
 
 import by.bsuir.computersales.common.protocol.*;
+import by.bsuir.computersales.common.dto.CreateSaleData;
+import by.bsuir.computersales.common.dto.SaleItemData;
+import by.bsuir.computersales.common.model.PaymentType;
+
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import java.io.*;
@@ -163,6 +168,32 @@ class ProtocolSerializationTest {
                 firstRequest.getRequestId(),
                 secondRequest.getRequestId()
         );
+    }
+    @Test
+    void createSaleDataShouldBeSerializedAndRestored()
+            throws Exception {
+
+        CreateSaleData original = new CreateSaleData(
+                10L,
+                PaymentType.FULL_PAYMENT,
+                List.of(
+                        new SaleItemData(1L, 2),
+                        new SaleItemData(2L, 3)
+                )
+        );
+
+        CreateSaleData restored = serializeAndRestore(original);
+
+        assertEquals(original.customerId(), restored.customerId());
+        assertEquals(original.paymentType(), restored.paymentType());
+
+        assertEquals(2, restored.items().size());
+
+        assertEquals(1L, restored.items().get(0).productId());
+        assertEquals(2, restored.items().get(0).quantity());
+
+        assertEquals(2L, restored.items().get(1).productId());
+        assertEquals(3, restored.items().get(1).quantity());
     }
 }
 
