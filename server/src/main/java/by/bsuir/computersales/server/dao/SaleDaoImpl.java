@@ -1,9 +1,13 @@
 
 package by.bsuir.computersales.server.dao;
 
+import by.bsuir.computersales.common.dto.CreateSaleData;
+import by.bsuir.computersales.common.dto.SaleItemData;
 import by.bsuir.computersales.common.model.*;
 import by.bsuir.computersales.server.database.DatabaseManager;
+import by.bsuir.computersales.server.exception.BusinessRuleException;
 import by.bsuir.computersales.server.exception.DataAccessException;
+import by.bsuir.computersales.server.exception.ValidationException;
 import by.bsuir.computersales.server.factory.ProductFactory;
 
 import java.sql.Connection;
@@ -11,11 +15,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * JDBC-реализация доступа к данным о продажах.
@@ -87,6 +93,45 @@ public class SaleDaoImpl implements SaleDao {
                     + " WHERE s.user_id = ? "
                     + "ORDER BY s.sale_date DESC, s.sale_id, si.line_number";
 
+    private static final String CHECK_CUSTOMER_SQL = """
+            SELECT 1
+            FROM customers
+            WHERE customer_id = ?
+            """;
+
+    private static final String CHECK_USER_SQL = """
+            SELECT 1
+            FROM users
+            WHERE user_id = ?
+              AND is_active = TRUE
+            """;
+
+    private static final String INSERT_SALE_SQL = """
+            INSERT INTO sales (customer_id, user_id, payment_type)
+            VALUES (?, ?, ?)
+            RETURNING sale_id
+            """;
+
+    private static final String UPDATE_PRODUCT_STOCK_SQL = """
+            UPDATE products
+            SET stock_quantity = stock_quantity - ?
+            WHERE product_id = ?
+              AND is_active = TRUE
+              AND stock_quantity >= ?
+            RETURNING price
+            """;
+
+    private static final String INSERT_SALE_ITEM_SQL = """
+            INSERT INTO sale_items (
+                sale_id,
+                line_number,
+                product_id,
+                quantity,
+                unit_price
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """;
+
     private final DatabaseManager databaseManager;
     private final ProductFactory productFactory;
 
@@ -141,6 +186,244 @@ public class SaleDaoImpl implements SaleDao {
                 userId,
                 "получить продажи сотрудника"
         );
+    }
+
+    /**
+     * Создаёт продажу и уменьшает остатки товаров
+     * в рамках одной транзакции.
+     */
+    @Override
+    public Long createSale(Long userId, CreateSaleData saleData) {
+        validateId(userId, "сотрудника");
+
+        if (saleData == null) {
+            throw new ValidationException(
+                    "Данные продажи не должны быть null"
+            );
+        }
+
+        List<SaleItemData> items = saleData.items();
+
+        if (items == null || items.isEmpty()) {
+            throw new ValidationException(
+                    "Продажа должна содержать хотя бы один товар"
+            );
+        }
+
+        // Не допускаем повторения одного товара в разных позициях.
+        Set<Long> productIds = new HashSet<>();
+
+        for (SaleItemData item : items) {
+            if (item == null) {
+                throw new ValidationException(
+                        "Позиция продажи не должна быть null"
+                );
+            }
+
+            if (!productIds.add(item.productId())) {
+                throw new ValidationException(
+                        "Один товар не должен повторяться "
+                                + "в нескольких позициях продажи"
+                );
+            }
+        }
+
+        try (Connection connection = databaseManager.getConnection()) {
+            connection.setAutoCommit(false);
+
+            try {
+                // Проверяем существование покупателя.
+                checkCustomerExists(connection, saleData.customerId());
+
+                // Проверяем существование и активность сотрудника.
+                checkActiveUserExists(connection, userId);
+
+                // Создаём основную запись продажи.
+                Long saleId = insertSale(connection, userId, saleData);
+
+                // Добавляем товарные позиции и уменьшаем остатки.
+                int lineNumber = 1;
+
+                for (SaleItemData item : items) {
+                    insertSaleItem(
+                            connection,
+                            saleId,
+                            lineNumber,
+                            item
+                    );
+
+                    lineNumber++;
+                }
+
+                connection.commit();
+
+                return saleId;
+
+            } catch (SQLException exception) {
+                rollback(connection, exception);
+
+                throw new DataAccessException(
+                        "Не удалось оформить продажу",
+                        exception
+                );
+
+            } catch (RuntimeException exception) {
+                rollback(connection, exception);
+                throw exception;
+            }
+
+        } catch (SQLException exception) {
+            throw new DataAccessException(
+                    "Не удалось получить соединение "
+                            + "для оформления продажи",
+                    exception
+            );
+        }
+    }
+
+    /**
+     * Проверяет существование покупателя.
+     */
+    private void checkCustomerExists(
+            Connection connection,
+            Long customerId) throws SQLException {
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(CHECK_CUSTOMER_SQL)) {
+
+            statement.setLong(1, customerId);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    throw new BusinessRuleException(
+                            "Покупатель с идентификатором "
+                                    + customerId + " не найден"
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * Проверяет существование и активность сотрудника.
+     */
+    private void checkActiveUserExists(
+            Connection connection,
+            Long userId) throws SQLException {
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(CHECK_USER_SQL)) {
+
+            statement.setLong(1, userId);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    throw new BusinessRuleException(
+                            "Сотрудник не найден или неактивен"
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * Добавляет основную запись продажи.
+     *
+     * @return идентификатор созданной продажи
+     */
+    private Long insertSale(
+            Connection connection,
+            Long userId,
+            CreateSaleData saleData) throws SQLException {
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(INSERT_SALE_SQL)) {
+
+            statement.setLong(1, saleData.customerId());
+            statement.setLong(2, userId);
+            statement.setString(
+                    3,
+                    saleData.paymentType().name()
+            );
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    throw new SQLException(
+                            "База данных не вернула идентификатор продажи"
+                    );
+                }
+
+                return resultSet.getLong("sale_id");
+            }
+        }
+    }
+
+    /**
+     * Добавляет товарную позицию продажи.
+     *
+     * Перед добавлением позиции остаток товара уменьшается.
+     * Цена фиксируется на момент оформления продажи.
+     */
+    private void insertSaleItem(
+            Connection connection,
+            Long saleId,
+            int lineNumber,
+            SaleItemData item) throws SQLException {
+
+        java.math.BigDecimal unitPrice;
+
+        // Уменьшаем остаток только при наличии нужного количества.
+        // Условие UPDATE защищает от продажи одного остатка
+        // одновременно несколькими сотрудниками.
+        try (PreparedStatement statement =
+                     connection.prepareStatement(UPDATE_PRODUCT_STOCK_SQL)) {
+
+            statement.setInt(1, item.quantity());
+            statement.setLong(2, item.productId());
+            statement.setInt(3, item.quantity());
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    throw new BusinessRuleException(
+                            "Товар с идентификатором "
+                                    + item.productId()
+                                    + " отсутствует, неактивен "
+                                    + "или его остатка недостаточно"
+                    );
+                }
+
+                unitPrice = resultSet.getBigDecimal("price");
+            }
+        }
+
+        // Сохраняем цену из базы данных, а не от клиента.
+        try (PreparedStatement statement =
+                     connection.prepareStatement(INSERT_SALE_ITEM_SQL)) {
+
+            statement.setLong(1, saleId);
+            statement.setInt(2, lineNumber);
+            statement.setLong(3, item.productId());
+            statement.setInt(4, item.quantity());
+            statement.setBigDecimal(5, unitPrice);
+
+            statement.executeUpdate();
+        }
+    }
+
+    /**
+     * Отменяет транзакцию.
+     * Если откат также завершился ошибкой, она добавляется
+     * к исходному исключению.
+     */
+    private void rollback(
+            Connection connection,
+            Throwable originalException) {
+
+        try {
+            connection.rollback();
+        } catch (SQLException rollbackException) {
+            originalException.addSuppressed(rollbackException);
+        }
     }
 
     private List<Sale> executeListQuery(
