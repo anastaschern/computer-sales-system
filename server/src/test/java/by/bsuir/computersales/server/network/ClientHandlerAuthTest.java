@@ -116,6 +116,101 @@ class ClientHandlerAuthTest {
     }
 
     /**
+     * Проверяет отказ при использовании недействительного токена.
+     */
+    @Test
+    void shouldRejectRequestWithInvalidSessionToken() throws Exception {
+        try (TestConnection connection = openConnection()) {
+
+            Request request = new Request(
+                    RequestType.GET_PRODUCTS,
+                    "invalid-session-token",
+                    null
+            );
+
+            Response response = connection.send(request);
+
+            assertEquals(
+                    ResponseStatus.UNAUTHORIZED,
+                    response.getStatus()
+            );
+
+            assertEquals(
+                    ErrorCode.AUTHENTICATION_REQUIRED,
+                    response.getErrorCode()
+            );
+
+            connection.disconnect();
+        }
+    }
+
+    /**
+     * Проверяет, что после выхода токен больше не работает.
+     */
+    @Test
+    void shouldRejectRequestsAfterLogout() throws Exception {
+        try (TestConnection connection = openConnection()) {
+
+            // Сначала авторизуемся.
+            Response loginResponse = connection.send(
+                    new Request(
+                            RequestType.LOGIN,
+                            null,
+                            new LoginRequestData("test-user", "password123")
+                    )
+            );
+
+            assertEquals(
+                    ResponseStatus.SUCCESS,
+                    loginResponse.getStatus()
+            );
+
+            LoginResult loginResult =
+                    (LoginResult) loginResponse.getPayload();
+
+            String sessionToken = loginResult.sessionToken();
+
+            assertNotNull(sessionToken);
+
+            // Завершаем пользовательскую сессию.
+            Response logoutResponse = connection.send(
+                    new Request(
+                            RequestType.LOGOUT,
+                            sessionToken,
+                            null
+                    )
+            );
+
+            assertEquals(
+                    ResponseStatus.SUCCESS,
+                    logoutResponse.getStatus()
+            );
+
+            // Повторно используем старый токен.
+            Response productsResponse = connection.send(
+                    new Request(
+                            RequestType.GET_PRODUCTS,
+                            sessionToken,
+                            null
+                    )
+            );
+
+            assertEquals(
+                    ResponseStatus.UNAUTHORIZED,
+                    productsResponse.getStatus()
+            );
+
+            assertEquals(
+                    ErrorCode.AUTHENTICATION_REQUIRED,
+                    productsResponse.getErrorCode()
+            );
+
+            connection.disconnect();
+        }
+    }
+
+
+    /**
      * Создаёт сервис авторизации с тестовым пользователем.
      */
     private AuthService createAuthService() {
