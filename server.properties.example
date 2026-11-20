@@ -1,0 +1,12 @@
+
+# Настройки сервера
+server.host=127.0.0.1
+server.port=8080
+
+# Настройки подключения к PostgreSQL
+database.url=jdbc:postgresql://localhost:5432/computer_sales
+database.username=postgres
+database.password=CHANGE_ME
+
+# Максимальное количество соединений с базой данных
+database.pool-size=10
