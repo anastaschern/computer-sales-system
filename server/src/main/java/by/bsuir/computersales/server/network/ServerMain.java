@@ -2,32 +2,43 @@
 package by.bsuir.computersales.server.network;
 
 import by.bsuir.computersales.server.config.ServerConfig;
+import by.bsuir.computersales.server.dao.UserDaoImpl;
 import by.bsuir.computersales.server.database.DatabaseManager;
+import by.bsuir.computersales.server.security.PasswordHasher;
+import by.bsuir.computersales.server.security.SessionManager;
+import by.bsuir.computersales.server.service.AuthService;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.net.InetSocketAddress;
 
 /**
  * Главный класс многопоточного сервера.
  *
  * Отвечает за загрузку конфигурации,
- * подключение к базе данных и приём клиентов.
+ * подключение к базе данных, авторизацию
+ * пользователей и приём клиентских подключений.
  */
 public class ServerMain {
 
     private final ServerConfig config;
     private final DatabaseManager databaseManager;
     private final ExecutorService clientPool;
+    private final AuthService authService;
 
     private ServerSocket serverSocket;
     private volatile boolean running;
 
+    /**
+     * Создаёт сервер и необходимые компоненты приложения.
+     *
+     * @param config настройки сервера
+     */
     public ServerMain(ServerConfig config) {
         if (config == null) {
             throw new IllegalArgumentException(
@@ -36,8 +47,29 @@ public class ServerMain {
         }
 
         this.config = config;
+
+        // Создаём менеджер подключений к базе данных.
         this.databaseManager = new DatabaseManager(config);
 
+        // Создаём DAO для работы с пользователями.
+        UserDaoImpl userDao = new UserDaoImpl(databaseManager);
+
+        // Создаём средство проверки паролей.
+        PasswordHasher passwordHasher = new PasswordHasher();
+
+        // Создаём менеджер пользовательских сессий.
+        SessionManager sessionManager = new SessionManager(
+                config.getSessionTimeoutSeconds()
+        );
+
+        // Создаём сервис авторизации.
+        this.authService = new AuthService(
+                userDao,
+                passwordHasher,
+                sessionManager
+        );
+
+        // Создаём пул потоков для обработки клиентов.
         this.clientPool = Executors.newFixedThreadPool(
                 config.getThreadPoolSize()
         );
@@ -54,6 +86,7 @@ public class ServerMain {
         }
 
         serverSocket = new ServerSocket();
+
         serverSocket.bind(new InetSocketAddress(
                 config.getServerHost(),
                 config.getServerPort()
@@ -82,15 +115,18 @@ public class ServerMain {
                                 + clientSocket.getRemoteSocketAddress()
                 );
 
-                // Каждый клиент передаётся в пул потоков.
+                // Передаём клиенту общий сервис авторизации.
+                // Каждый ClientHandler работает в отдельном потоке.
                 clientPool.execute(
-                        new ClientHandler(clientSocket)
+                        new ClientHandler(clientSocket, authService)
                 );
             }
+
         } catch (IOException e) {
             if (running) {
                 throw e;
             }
+
         } finally {
             stop();
         }
