@@ -93,5 +93,23 @@ class ValidationUtilsTest {
                 () -> ValidationUtils.validatePassword("1234567")
         );
     }
+    @Test
+    void shouldAcceptPasswordWithMaximumLength() {
+        String password = "a".repeat(128);
+
+        assertDoesNotThrow(
+                () -> ValidationUtils.validatePassword(password)
+        );
+    }
+
+    @Test
+    void shouldRejectPasswordLongerThan128Characters() {
+        String password = "a".repeat(129);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ValidationUtils.validatePassword(password)
+        );
+    }
 }
 
