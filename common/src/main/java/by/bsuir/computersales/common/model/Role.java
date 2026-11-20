@@ -1,3 +1,4 @@
+
 package by.bsuir.computersales.common.model;
 
 import java.io.Serializable;
@@ -5,21 +6,27 @@ import java.util.Objects;
 
 /**
  * Модель роли пользователя системы.
+ *
+ * Тип роли определяется перечислением RoleType.
  */
 public class Role implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     private Long roleId;
-    private String roleName;
+    private RoleType roleType;
     private String description;
 
     public Role() {
     }
 
-    public Role(Long roleId, String roleName, String description) {
+    public Role(
+            Long roleId,
+            RoleType roleType,
+            String description
+    ) {
         this.roleId = roleId;
-        this.roleName = roleName;
+        setRoleType(roleType);
         this.description = description;
     }
 
@@ -31,12 +38,18 @@ public class Role implements Serializable {
         this.roleId = roleId;
     }
 
-    public String getRoleName() {
-        return roleName;
+    public RoleType getRoleType() {
+        return roleType;
     }
 
-    public void setRoleName(String roleName) {
-        this.roleName = roleName;
+    public void setRoleType(RoleType roleType) {
+        if (roleType == null) {
+            throw new IllegalArgumentException(
+                    "Тип роли не может быть null"
+            );
+        }
+
+        this.roleType = roleType;
     }
 
     public String getDescription() {
@@ -47,10 +60,17 @@ public class Role implements Serializable {
         this.description = description;
     }
 
+    /**
+     * Возвращает описание роли для отображения.
+     */
     @Override
     public String toString() {
-        return roleName;
+        return description;
     }
+
+    /**
+     * Сравнивает роли по идентификатору.
+     */
     @Override
     public boolean equals(Object object) {
         if (this == object) {
@@ -63,10 +83,12 @@ public class Role implements Serializable {
 
         Role role = (Role) object;
 
-        return roleId != null
-                && roleId.equals(role.roleId);
+        return roleId != null && roleId.equals(role.roleId);
     }
 
+    /**
+     * Возвращает хеш-код роли на основе идентификатора.
+     */
     @Override
     public int hashCode() {
         return Objects.hash(roleId);
