@@ -1,0 +1,86 @@
+-- Тестовые данные для разработки и тестирования (НЕ загружать в рабочую базу).
+-- Выполнять после schema.sql и seed.sql.
+--
+-- Учётные записи (пароль у всех: Password123). Формат хеша:
+--   PBKDF2WithHmacSHA256$<итерации>$<соль, Base64>$<хеш 256 бит, Base64>
+-- Класс PasswordHasher на сервере должен проверять пароли именно в этом формате.
+
+INSERT INTO users (login, password_hash, role_id) VALUES
+    ('admin',      'PBKDF2WithHmacSHA256$600000$gPbZ/EuxCvtyxubGOlJT3w==$JH/AESp/Dc8qRxmm4EAkXL+XW8BvdiD79gnoYMYdlLc=',      (SELECT role_id FROM roles WHERE role_name = 'ADMIN')),
+    ('manager',    'PBKDF2WithHmacSHA256$600000$JMIENdh7TtMr226CK0gZRQ==$6+xDLzmYov7HybB4BA2ngIjppbcOnDFOJpuxg7IWtQ4=',    (SELECT role_id FROM roles WHERE role_name = 'SALES_MANAGER')),
+    ('specialist', 'PBKDF2WithHmacSHA256$600000$H+NpVBNl1JBgIUQL/yrpOA==$Qox5vOV4SCpIpy6VYOtwHmKAmKfZNeWYeOBrlsJUKHc=', (SELECT role_id FROM roles WHERE role_name = 'INSTALLMENT_SPECIALIST'));
+
+-- Покупатели: №1–3 с полными данными, №4 без сведений о документе (нарушает правило R1)
+INSERT INTO customers (full_name, phone, email, document_reference) VALUES
+    ('Иванов Иван Иванович',     '+375291110001', 'ivanov@example.com',  'Паспорт MP1234567'),
+    ('Петрова Анна Сергеевна',   '+375291110002', 'petrova@example.com', 'Паспорт MP7654321'),
+    ('Сидоров Олег Петрович',    '+375291110003', NULL,                  'Паспорт MP1112223'),
+    ('Кравец Мария Николаевна',  '+375291110004', NULL,                  NULL);
+
+-- Товары (категории задаются по названию)
+INSERT INTO products (category_id, manufacturer, model, product_name, specification, price, stock_quantity)
+SELECT c.category_id, v.manufacturer, v.model, v.product_name, v.specification, v.price, v.stock
+FROM (VALUES
+    ('Ноутбуки',                'Lenovo',   'ThinkPad E14', 'Ноутбук Lenovo ThinkPad E14', '16 GB RAM, 512 GB SSD', 2500.00, 10),
+    ('Ноутбуки',                'ASUS',     'Vivobook 15',  'Ноутбук ASUS Vivobook 15',    '8 GB RAM, 512 GB SSD',  1700.00,  6),
+    ('Ноутбуки',                'HP',       'ProBook 450',  'Ноутбук HP ProBook 450',      '16 GB RAM, 1 TB SSD',   2900.00,  3),
+    ('Настольные компьютеры',   'HP',       'ProDesk 400',  'Компьютер HP ProDesk 400',    'Core i5, 16 GB RAM',    1800.00,  5),
+    ('Настольные компьютеры',   'Dell',     'OptiPlex 3000','Компьютер Dell OptiPlex',     'Core i3, 8 GB RAM',     1300.00,  4),
+    ('Мониторы',                'Samsung',  'S24C',         'Монитор Samsung S24C',        '24", Full HD',           650.00,  7),
+    ('Мониторы',                'LG',       '27UP600',      'Монитор LG 27UP600',          '27", 4K',               1200.00,  2),
+    ('Периферийные устройства', 'Logitech', 'M185',         'Мышь Logitech M185',          'Беспроводная',            50.00, 20),
+    ('Периферийные устройства', 'Logitech', 'K380',         'Клавиатура Logitech K380',    'Bluetooth',               90.00,  0)
+) AS v(category_name, manufacturer, model, product_name, specification, price, stock)
+JOIN categories c ON c.category_name = v.category_name;
+
+-- Продажа 1: полная оплата (мышь и монитор), платёж внесён
+INSERT INTO sales (customer_id, user_id, sale_date, status, payment_type)
+VALUES (1, (SELECT user_id FROM users WHERE login = 'manager'), CURRENT_TIMESTAMP - INTERVAL '10 days', 'COMPLETED', 'FULL_PAYMENT');
+INSERT INTO sale_items (sale_id, line_number, product_id, quantity, unit_price) VALUES
+    (1, 1, (SELECT product_id FROM products WHERE model = 'S24C'), 1, 650.00),
+    (1, 2, (SELECT product_id FROM products WHERE model = 'M185'), 2,  50.00);
+INSERT INTO payments (sale_id, payment_date, amount, payment_method, payment_purpose)
+VALUES (1, CURRENT_TIMESTAMP - INTERVAL '10 days', 750.00, 'CARD', 'FULL_PAYMENT');
+
+-- Продажа 2: рассрочка на 3 месяца, одобрена, один платёж внесён, один просрочен
+INSERT INTO sales (customer_id, user_id, sale_date, status, payment_type)
+VALUES (3, (SELECT user_id FROM users WHERE login = 'manager'), CURRENT_TIMESTAMP - INTERVAL '70 days', 'REGISTERED', 'INSTALLMENT');
+INSERT INTO sale_items (sale_id, line_number, product_id, quantity, unit_price) VALUES
+    (2, 1, (SELECT product_id FROM products WHERE model = 'OptiPlex 3000'), 1, 1300.00);
+INSERT INTO installment_applications
+    (sale_id, reviewer_id, application_date, decision_date, term_months, down_payment_amount, interest_rate, status)
+VALUES (2, (SELECT user_id FROM users WHERE login = 'specialist'),
+        CURRENT_TIMESTAMP - INTERVAL '69 days', CURRENT_TIMESTAMP - INTERVAL '68 days', 3, 130.00, 0, 'IN_PROGRESS');
+-- сумма рассрочки 1300 - 130 = 1170, три платежа по 390
+INSERT INTO payment_schedule (application_id, payment_number, due_date, planned_amount) VALUES
+    (1, 1, CURRENT_DATE - 38, 390.00),
+    (1, 2, CURRENT_DATE - 8,  390.00),
+    (1, 3, CURRENT_DATE + 22, 390.00);
+INSERT INTO payments (sale_id, payment_date, amount, payment_method, payment_purpose) VALUES
+    (2, CURRENT_TIMESTAMP - INTERVAL '69 days', 130.00, 'CASH', 'DOWN_PAYMENT');
+INSERT INTO payments (sale_id, application_id, payment_number, payment_date, amount, payment_method, payment_purpose) VALUES
+    (2, 1, 1, CURRENT_TIMESTAMP - INTERVAL '40 days', 390.00, 'CARD', 'INSTALLMENT_PAYMENT');
+-- платёж №2 просрочен: оплаты нет
+
+-- Продажа 3: рассрочка, заявка ожидает рассмотрения (покупатель №2)
+INSERT INTO sales (customer_id, user_id, status, payment_type)
+VALUES (2, (SELECT user_id FROM users WHERE login = 'manager'), 'REGISTERED', 'INSTALLMENT');
+INSERT INTO sale_items (sale_id, line_number, product_id, quantity, unit_price) VALUES
+    (3, 1, (SELECT product_id FROM products WHERE model = 'ThinkPad E14'), 1, 2500.00);
+INSERT INTO installment_applications (sale_id, term_months, down_payment_amount, interest_rate, status)
+VALUES (3, 12, 250.00, 9.60, 'ON_REVIEW');
+
+-- Продажа 4: рассрочка, покупатель без документа (при рассмотрении будет возвращена на уточнение)
+INSERT INTO sales (customer_id, user_id, status, payment_type)
+VALUES (4, (SELECT user_id FROM users WHERE login = 'manager'), 'REGISTERED', 'INSTALLMENT');
+INSERT INTO sale_items (sale_id, line_number, product_id, quantity, unit_price) VALUES
+    (4, 1, (SELECT product_id FROM products WHERE model = 'Vivobook 15'), 1, 1700.00);
+INSERT INTO installment_applications (sale_id, term_months, down_payment_amount, interest_rate, status)
+VALUES (4, 6, 170.00, 0, 'ON_REVIEW');
+
+-- Остатки с учётом проданного
+UPDATE products SET stock_quantity = stock_quantity - 1 WHERE model IN ('S24C', 'OptiPlex 3000', 'ThinkPad E14', 'Vivobook 15');
+UPDATE products SET stock_quantity = stock_quantity - 2 WHERE model = 'M185';
+
+INSERT INTO audit_log (user_id, action, entity_type, entity_id, details)
+VALUES ((SELECT user_id FROM users WHERE login = 'admin'), 'INIT_TEST_DATA', 'DATABASE', NULL, 'Загружены тестовые данные');

@@ -1,0 +1,13 @@
+-- Обязательные справочные данные (нужны и в рабочей, и в тестовой базе).
+-- Выполнять после schema.sql.
+
+INSERT INTO roles (role_name, description) VALUES
+    ('ADMIN',                  'Администратор'),
+    ('SALES_MANAGER',          'Менеджер по продажам'),
+    ('INSTALLMENT_SPECIALIST', 'Специалист по рассрочке');
+
+INSERT INTO categories (category_name, description, product_type) VALUES
+    ('Ноутбуки',                'Портативные компьютеры',       'LAPTOP'),
+    ('Настольные компьютеры',   'Системные блоки и моноблоки',  'DESKTOP_COMPUTER'),
+    ('Мониторы',                'Мониторы и дисплеи',           'MONITOR'),
+    ('Периферийные устройства', 'Мыши, клавиатуры, гарнитуры',  'PERIPHERAL_DEVICE');
