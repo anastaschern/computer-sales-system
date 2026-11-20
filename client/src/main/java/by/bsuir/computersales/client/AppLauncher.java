@@ -1,4 +1,4 @@
-package by.bsuir.computersales.common.client;
+package by.bsuir.computersales.client;
 
 import javafx.application.Application;
 import javafx.scene.Scene;

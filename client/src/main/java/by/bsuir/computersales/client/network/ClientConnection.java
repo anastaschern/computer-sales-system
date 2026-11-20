@@ -1,10 +1,10 @@
 
 package by.bsuir.computersales.client.network;
 
-import by.bsuir.computersales.client.common.protocol.Request;
-import by.bsuir.computersales.client.common.protocol.RequestType;
-import by.bsuir.computersales.client.common.protocol.Response;
 
+import by.bsuir.computersales.common.protocol.Request;
+import by.bsuir.computersales.common.protocol.RequestType;
+import by.bsuir.computersales.common.protocol.Response;
 import java.io.IOException;
 import java.io.InvalidClassException;
 import java.io.ObjectInputFilter;
@@ -215,7 +215,7 @@ public class ClientConnection implements AutoCloseable {
 
             // Разрешаем классы общего модуля проекта.
             if (className.startsWith(
-                    "by.bsuir.computersales.client.common."
+                    "by.bsuir.computersales.common."
             )) {
                 return ObjectInputFilter.Status.ALLOWED;
             }
@@ -231,7 +231,8 @@ public class ClientConnection implements AutoCloseable {
                     || serialClass == java.util.ArrayList.class
                     || serialClass == java.util.UUID.class
                     || serialClass == java.math.BigDecimal.class
-                    || serialClass == java.time.Ser.class) {
+                    || className.equals("java.time.Ser")
+                    || className.startsWith("java.time.")) {
 
                 return ObjectInputFilter.Status.ALLOWED;
             }
