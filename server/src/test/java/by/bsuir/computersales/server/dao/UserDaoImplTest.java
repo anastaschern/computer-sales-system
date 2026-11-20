@@ -138,4 +138,45 @@ class UserDaoImplTest {
             assertNotNull(user.getCreatedAt());
         }
     }
+
+    @Test
+    void findCredentialsByLoginShouldReturnCredentialsWhenUserExists() {
+        List<User> users = userDao.findAll();
+        String login = users.get(0).getLogin();
+
+        Optional<UserCredentials> result =
+                userDao.findCredentialsByLogin(login);
+
+        assertTrue(result.isPresent());
+
+        UserCredentials credentials = result.get();
+
+        assertEquals(login, credentials.user().getLogin());
+        assertNotNull(credentials.passwordHash());
+        assertFalse(credentials.passwordHash().isBlank());
+    }
+
+    @Test
+    void findCredentialsByLoginShouldReturnEmptyWhenUserDoesNotExist() {
+        Optional<UserCredentials> result =
+                userDao.findCredentialsByLogin("unknown_user_999");
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void findCredentialsByLoginShouldRejectNullLogin() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> userDao.findCredentialsByLogin(null)
+        );
+    }
+
+    @Test
+    void findCredentialsByLoginShouldRejectBlankLogin() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> userDao.findCredentialsByLogin("   ")
+        );
+    }
 }
