@@ -53,5 +53,44 @@ class UserTest {
         assertFalse(result.toLowerCase().contains("password"));
         assertFalse(result.toLowerCase().contains("hash"));
     }
+    @Test
+    void shouldConsiderUsersWithSameIdEqual() {
+        User first = new User(
+                1L, "admin", null, true, null
+        );
+
+        User second = new User(
+                1L, "manager", null, false, null
+        );
+
+        assertEquals(first, second);
+        assertEquals(first.hashCode(), second.hashCode());
+    }
+
+    @Test
+    void shouldConsiderUsersWithDifferentIdsNotEqual() {
+        User first = new User(
+                1L, "admin", null, true, null
+        );
+
+        User second = new User(
+                2L, "admin", null, true, null
+        );
+
+        assertNotEquals(first, second);
+    }
+
+    @Test
+    void shouldNotConsiderDifferentUsersWithoutIdEqual() {
+        User first = new User(
+                null, "admin", null, true, null
+        );
+
+        User second = new User(
+                null, "admin", null, true, null
+        );
+
+        assertNotEquals(first, second);
+    }
 }
 

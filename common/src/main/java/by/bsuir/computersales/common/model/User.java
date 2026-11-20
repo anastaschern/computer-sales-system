@@ -3,6 +3,7 @@ package by.bsuir.computersales.common.model;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * Модель пользователя системы.
@@ -87,5 +88,30 @@ public class User implements Serializable {
                 + ", active=" + active
                 + ", createdAt=" + createdAt
                 + ']';
+    }
+    /**
+     * Сравнивает пользователей по идентификатору.
+     */
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+
+        if (object == null || getClass() != object.getClass()) {
+            return false;
+        }
+
+        User user = (User) object;
+
+        return userId != null && userId.equals(user.userId);
+    }
+
+    /**
+     * Возвращает хеш-код пользователя на основе идентификатора.
+     */
+    @Override
+    public int hashCode() {
+        return Objects.hash(userId);
     }
 }
