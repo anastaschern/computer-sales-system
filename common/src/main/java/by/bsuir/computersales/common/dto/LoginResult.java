@@ -1,5 +1,5 @@
 
-package by.bsuir.computersales.common;
+package by.bsuir.computersales.common.dto;
 
 import by.bsuir.computersales.common.model.User;
 

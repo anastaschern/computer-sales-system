@@ -1,7 +1,6 @@
 
 package by.bsuir.computersales.common.dto;
 
-import by.bsuir.computersales.common.LoginResult;
 import by.bsuir.computersales.common.model.User;
 import org.junit.jupiter.api.Test;
 
