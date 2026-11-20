@@ -20,6 +20,8 @@ class ServerConfigTest {
         Path file = createConfigFile(
                 "server.host=127.0.0.1\n"
                         + "server.port=8080\n"
+                        + "server.thread-pool-size=20\n"
+                        + "server.session-timeout-seconds=1800\n"
                         + "database.url=jdbc:postgresql://localhost:5432/computer_sales\n"
                         + "database.username=postgres\n"
                         + "database.password=secret\n"
@@ -30,6 +32,9 @@ class ServerConfigTest {
 
         assertEquals("127.0.0.1", config.getServerHost());
         assertEquals(8080, config.getServerPort());
+        assertEquals(20, config.getThreadPoolSize());
+        assertEquals(1800, config.getSessionTimeoutSeconds());
+
         assertEquals(
                 "jdbc:postgresql://localhost:5432/computer_sales",
                 config.getDatabaseUrl()
@@ -44,6 +49,8 @@ class ServerConfigTest {
         Path file = createConfigFile(
                 "server.host=127.0.0.1\n"
                         + "server.port=8080\n"
+                        + "server.thread-pool-size=20\n"
+                        + "server.session-timeout-seconds=1800\n"
                         + "database.url=jdbc:postgresql://localhost:5432/computer_sales\n"
                         + "database.username=postgres\n"
                         + "database.pool-size=10\n"
@@ -60,6 +67,8 @@ class ServerConfigTest {
         Path file = createConfigFile(
                 "server.host=127.0.0.1\n"
                         + "server.port=70000\n"
+                        + "server.thread-pool-size=20\n"
+                        + "server.session-timeout-seconds=1800\n"
                         + "database.url=jdbc:postgresql://localhost:5432/computer_sales\n"
                         + "database.username=postgres\n"
                         + "database.password=secret\n"
@@ -77,10 +86,50 @@ class ServerConfigTest {
         Path file = createConfigFile(
                 "server.host=127.0.0.1\n"
                         + "server.port=8080\n"
+                        + "server.thread-pool-size=20\n"
+                        + "server.session-timeout-seconds=1800\n"
                         + "database.url=jdbc:postgresql://localhost:5432/computer_sales\n"
                         + "database.username=postgres\n"
                         + "database.password=secret\n"
                         + "database.pool-size=0\n"
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ServerConfig.load(file)
+        );
+    }
+
+    @Test
+    void shouldRejectInvalidThreadPoolSize() throws IOException {
+        Path file = createConfigFile(
+                "server.host=127.0.0.1\n"
+                        + "server.port=8080\n"
+                        + "server.thread-pool-size=0\n"
+                        + "server.session-timeout-seconds=1800\n"
+                        + "database.url=jdbc:postgresql://localhost:5432/computer_sales\n"
+                        + "database.username=postgres\n"
+                        + "database.password=secret\n"
+                        + "database.pool-size=10\n"
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ServerConfig.load(file)
+        );
+    }
+
+    @Test
+    void shouldRejectInvalidSessionTimeout() throws IOException {
+        Path file = createConfigFile(
+                "server.host=127.0.0.1\n"
+                        + "server.port=8080\n"
+                        + "server.thread-pool-size=20\n"
+                        + "server.session-timeout-seconds=0\n"
+                        + "database.url=jdbc:postgresql://localhost:5432/computer_sales\n"
+                        + "database.username=postgres\n"
+                        + "database.password=secret\n"
+                        + "database.pool-size=10\n"
         );
 
         assertThrows(
@@ -95,4 +144,3 @@ class ServerConfigTest {
         return file;
     }
 }
-

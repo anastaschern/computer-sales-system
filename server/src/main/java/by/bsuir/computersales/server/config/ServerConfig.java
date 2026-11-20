@@ -17,11 +17,12 @@ public class ServerConfig {
 
     private final String serverHost;
     private final int serverPort;
+    private final int threadPoolSize;
+    private final int sessionTimeoutSeconds;
 
     private final String databaseUrl;
     private final String databaseUsername;
     private final String databasePassword;
-
     private final int databasePoolSize;
 
     private ServerConfig(Properties properties) {
@@ -31,6 +32,14 @@ public class ServerConfig {
 
         this.serverPort = getIntProperty(
                 properties, "server.port"
+        );
+
+        this.threadPoolSize = getIntProperty(
+                properties, "server.thread-pool-size"
+        );
+
+        this.sessionTimeoutSeconds = getIntProperty(
+                properties, "server.session-timeout-seconds"
         );
 
         this.databaseUrl = getRequiredProperty(
@@ -126,9 +135,21 @@ public class ServerConfig {
             );
         }
 
+        if (threadPoolSize < 1) {
+            throw new IllegalArgumentException(
+                    "Размер пула потоков должен быть положительным"
+            );
+        }
+
+        if (sessionTimeoutSeconds < 1) {
+            throw new IllegalArgumentException(
+                    "Таймаут сессии должен быть положительным"
+            );
+        }
+
         if (databasePoolSize < 1) {
             throw new IllegalArgumentException(
-                    "Размер пула соединений должен быть положительным"
+                    "Размер пула соединений с базой данных должен быть положительным"
             );
         }
     }
@@ -139,6 +160,14 @@ public class ServerConfig {
 
     public int getServerPort() {
         return serverPort;
+    }
+
+    public int getThreadPoolSize() {
+        return threadPoolSize;
+    }
+
+    public int getSessionTimeoutSeconds() {
+        return sessionTimeoutSeconds;
     }
 
     public String getDatabaseUrl() {
@@ -165,6 +194,8 @@ public class ServerConfig {
         return "ServerConfig["
                 + "serverHost='" + serverHost + '\''
                 + ", serverPort=" + serverPort
+                + ", threadPoolSize=" + threadPoolSize
+                + ", sessionTimeoutSeconds=" + sessionTimeoutSeconds
                 + ", databaseUrl='" + databaseUrl + '\''
                 + ", databaseUsername='" + databaseUsername + '\''
                 + ", databasePassword=***"
@@ -172,4 +203,3 @@ public class ServerConfig {
                 + ']';
     }
 }
-
