@@ -79,11 +79,13 @@ public class SaleDaoImpl implements SaleDao {
 
     private static final String FIND_BY_CUSTOMER_ID_SQL =
             SELECT_SALES_SQL
-                    + " WHERE s.customer_id = ? ORDER BY s.sale_date DESC, s.sale_id";
+                    + " WHERE s.customer_id = ? "
+                    + "ORDER BY s.sale_date DESC, s.sale_id, si.line_number";
 
     private static final String FIND_BY_USER_ID_SQL =
             SELECT_SALES_SQL
-                    + " WHERE s.user_id = ? ORDER BY s.sale_date DESC, s.sale_id";
+                    + " WHERE s.user_id = ? "
+                    + "ORDER BY s.sale_date DESC, s.sale_id, si.line_number";
 
     private final DatabaseManager databaseManager;
     private final ProductFactory productFactory;

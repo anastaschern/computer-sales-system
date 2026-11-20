@@ -1,4 +1,14 @@
+
 package by.bsuir.computersales.common.model;
 
-public class PaymentType {
+/**
+ * Тип оплаты продажи.
+ */
+public enum PaymentType {
+
+    // Покупатель оплачивает всю стоимость товара сразу.
+    FULL_PAYMENT,
+
+    // Покупатель оплачивает товар в рассрочку.
+    INSTALLMENT
 }
