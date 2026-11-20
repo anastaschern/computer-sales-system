@@ -1,5 +1,5 @@
 
-package by.bsuir.computersales.server.factory;
+package by.bsuir.computersales.server;
 
 import by.bsuir.computersales.common.model.Category;
 import by.bsuir.computersales.common.model.Laptop;

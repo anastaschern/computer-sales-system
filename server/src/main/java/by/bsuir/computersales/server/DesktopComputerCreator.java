@@ -1,17 +1,17 @@
 
-package by.bsuir.computersales.server.factory;
+package by.bsuir.computersales.server;
 
 import by.bsuir.computersales.common.model.Category;
-import by.bsuir.computersales.common.model.Monitor;
+import by.bsuir.computersales.common.model.DesktopComputer;
 import by.bsuir.computersales.common.model.Product;
 import by.bsuir.computersales.common.model.ProductType;
 
 import java.math.BigDecimal;
 
 /**
- * Создатель объектов типа Monitor.
+ * Создатель объектов типа DesktopComputer.
  */
-public class MonitorCreator extends ProductCreator {
+public class DesktopComputerCreator extends ProductCreator {
 
     @Override
     protected Product createProduct(
@@ -25,7 +25,7 @@ public class MonitorCreator extends ProductCreator {
             int stockQuantity,
             boolean active) {
 
-        return new Monitor(
+        return new DesktopComputer(
                 productId,
                 category,
                 manufacturer,
@@ -40,6 +40,7 @@ public class MonitorCreator extends ProductCreator {
 
     @Override
     protected ProductType getSupportedType() {
-        return ProductType.MONITOR;
+        return ProductType.DESKTOP_COMPUTER;
     }
 }
+
