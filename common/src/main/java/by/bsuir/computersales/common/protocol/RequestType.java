@@ -15,7 +15,7 @@ public enum RequestType {
     GET_PRODUCT_BY_ID,
     CREATE_PRODUCT,
     UPDATE_PRODUCT,
-    DELETE_PRODUCT,
+    DEACTIVATE_PRODUCT,
 
     // Категории товаров
     GET_CATEGORIES,
