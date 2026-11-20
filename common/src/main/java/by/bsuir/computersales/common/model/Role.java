@@ -1,7 +1,7 @@
-
 package by.bsuir.computersales.common.model;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * Модель роли пользователя системы.
@@ -50,6 +50,26 @@ public class Role implements Serializable {
     @Override
     public String toString() {
         return roleName;
+    }
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+
+        if (object == null || getClass() != object.getClass()) {
+            return false;
+        }
+
+        Role role = (Role) object;
+
+        return roleId != null
+                && roleId.equals(role.roleId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(roleId);
     }
 }
 
