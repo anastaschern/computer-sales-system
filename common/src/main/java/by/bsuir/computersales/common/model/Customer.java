@@ -2,6 +2,7 @@
 package by.bsuir.computersales.common.model;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * Модель покупателя.
@@ -76,5 +77,25 @@ public class Customer implements Serializable {
     @Override
     public String toString() {
         return fullName;
+    }
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+
+        if (object == null || getClass() != object.getClass()) {
+            return false;
+        }
+
+        Customer customer = (Customer) object;
+
+        return customerId != null
+                && customerId.equals(customer.customerId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(customerId);
     }
 }
