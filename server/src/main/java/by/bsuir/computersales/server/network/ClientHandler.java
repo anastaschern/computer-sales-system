@@ -5,7 +5,13 @@ import by.bsuir.computersales.common.protocol.ErrorCode;
 import by.bsuir.computersales.common.protocol.Request;
 import by.bsuir.computersales.common.protocol.Response;
 import by.bsuir.computersales.common.protocol.RequestType;
+import by.bsuir.computersales.common.dto.CreateUserData;
+import by.bsuir.computersales.common.dto.LoginRequestData;
+import by.bsuir.computersales.common.dto.CreateSaleData;
+import by.bsuir.computersales.common.dto.SaleItemData;
+import by.bsuir.computersales.common.model.PaymentType;
 
+import java.util.ArrayList;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InvalidClassException;
@@ -113,8 +119,14 @@ public class ClientHandler implements Runnable {
     /**
      * Создаёт фильтр входящих сериализованных объектов.
      */
+
+    /**
+     * Создаёт фильтр входящих сериализованных объектов.
+     */
     private ObjectInputFilter createInputFilter() {
         return filterInfo -> {
+            // Ограничиваем глубину, количество объектов,
+            // общий объём данных и размер массивов.
             if (filterInfo.depth() > MAX_DEPTH
                     || filterInfo.references() > MAX_REFERENCES
                     || filterInfo.streamBytes() > MAX_BYTES
@@ -128,18 +140,31 @@ public class ClientHandler implements Runnable {
                 return ObjectInputFilter.Status.UNDECIDED;
             }
 
+            // Разрешаем только классы, используемые протоколом
+            // и DTO, передаваемыми клиентом.
             if (serialClass == Request.class
                     || serialClass == RequestType.class
                     || serialClass == String.class
                     || serialClass == java.util.UUID.class
                     || serialClass == Enum.class
-                    || serialClass.isEnum()) {
+                    || serialClass.isEnum()
+                    || serialClass == LoginRequestData.class
+                    || serialClass == CreateUserData.class
+                    || serialClass == CreateSaleData.class
+                    || serialClass == SaleItemData.class
+                    || serialClass == PaymentType.class
+                    || serialClass == Long.class
+                    || serialClass == java.lang.Number.class
+                    || serialClass == ArrayList.class
+                    || serialClass == Object[].class) {
+
                 return ObjectInputFilter.Status.ALLOWED;
             }
 
             return ObjectInputFilter.Status.REJECTED;
         };
     }
+
 
 
     /**
