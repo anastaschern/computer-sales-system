@@ -21,14 +21,12 @@ public enum RequestType {
     GET_CATEGORIES,
     CREATE_CATEGORY,
     UPDATE_CATEGORY,
-    DELETE_CATEGORY,
 
     // Покупатели
     GET_CUSTOMERS,
     GET_CUSTOMER_BY_ID,
     CREATE_CUSTOMER,
     UPDATE_CUSTOMER,
-    DELETE_CUSTOMER,
 
     // Продажи
     GET_SALES,
