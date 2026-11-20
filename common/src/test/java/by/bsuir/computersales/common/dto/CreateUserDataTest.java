@@ -1,6 +1,7 @@
 
 package by.bsuir.computersales.common.dto;
 
+import by.bsuir.computersales.common.CreateUserData;
 import by.bsuir.computersales.common.model.RoleType;
 import org.junit.jupiter.api.Test;
 

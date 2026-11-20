@@ -1,5 +1,7 @@
 package by.bsuir.computersales.common.model;
 
+import by.bsuir.computersales.common.model.Category;
+import by.bsuir.computersales.common.model.ProductType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

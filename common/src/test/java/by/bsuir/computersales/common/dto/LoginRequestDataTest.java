@@ -1,6 +1,7 @@
 
 package by.bsuir.computersales.common.dto;
 
+import by.bsuir.computersales.common.LoginRequestData;
 import org.junit.jupiter.api.Test;
 
 import java.io.Serializable;

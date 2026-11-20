@@ -1,5 +1,5 @@
 
-package by.bsuir.computersales.common.dto;
+package by.bsuir.computersales.common;
 
 import java.io.Serializable;
 

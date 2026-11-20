@@ -1,6 +1,7 @@
 
 package by.bsuir.computersales.common.util;
 
+import by.bsuir.computersales.common.util.ValidationUtils;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

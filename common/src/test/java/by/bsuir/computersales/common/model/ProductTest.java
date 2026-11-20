@@ -1,6 +1,7 @@
 
 package by.bsuir.computersales.common.model;
 
+import by.bsuir.computersales.common.model.*;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
