@@ -23,7 +23,7 @@ class CustomerDaoImplTest {
 
     @BeforeAll
     static void setUpDatabase() {
-        ServerConfig config = ServerConfig.load(Path.of("../server.properties"));
+        ServerConfig config = ServerConfig.load(Path.of("../server-test.properties"));
         databaseManager = new DatabaseManager(config);
     }
 
@@ -121,3 +121,4 @@ class CustomerDaoImplTest {
         );
     }
 }
+

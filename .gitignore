@@ -1,4 +1,4 @@
-# Maven
+﻿# Maven
 target/
 **/target/
 
@@ -19,3 +19,5 @@ Thumbs.db
 
 # Конфигурация сервера (содержит пароль БД)
 server.properties
+server-test.properties
+

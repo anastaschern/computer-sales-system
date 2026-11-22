@@ -21,7 +21,7 @@ class RoleDaoImplTest {
 
     private DatabaseManager createDatabaseManager() throws Exception {
         ServerConfig config = ServerConfig.load(
-                Path.of("../server.properties")
+                Path.of("../server-test.properties")
         );
         return new DatabaseManager(config);
     }
@@ -112,3 +112,4 @@ class RoleDaoImplTest {
         }
     }
 }
+
