@@ -396,6 +396,40 @@ public class InstallmentApplicationDaoImpl
             );
         }
 
+        try (Connection connection = databaseManager.getConnection()) {
+            update(connection, application);
+        } catch (SQLException exception) {
+            throw new DataAccessException(
+                    "Не удалось обновить заявку на рассрочку",
+                    exception
+            );
+        }
+    }
+
+    /**
+     * Обновляет заявку, используя переданное соединение.
+     *
+     * Соединением и транзакцией управляет вызывающий код.
+     *
+     * @param connection соединение с базой данных
+     * @param application обновляемая заявка
+     */
+    public void update(
+            Connection connection,
+            InstallmentApplication application) {
+
+        if (connection == null) {
+            throw new IllegalArgumentException(
+                    "Соединение с базой данных не должно быть null"
+            );
+        }
+
+        if (application == null) {
+            throw new ValidationException(
+                    "Заявка на рассрочку не должна быть null"
+            );
+        }
+
         Long applicationId = application.getApplicationId();
         validateId(applicationId, "заявки на рассрочку");
 
@@ -405,6 +439,7 @@ public class InstallmentApplicationDaoImpl
                 || status == InstallmentApplicationStatus.RETURNED)
                 && (application.getDecisionReason() == null
                 || application.getDecisionReason().isBlank())) {
+
             throw new ValidationException(
                     "Для отклонённой или возвращённой заявки необходимо указать причину"
             );
@@ -418,16 +453,16 @@ public class InstallmentApplicationDaoImpl
         }
 
         String sql = """
-            UPDATE installment_applications
-            SET reviewer_id = ?,
-                decision_date = ?,
-                status = ?,
-                decision_reason = ?
-            WHERE application_id = ?
-            """;
+        UPDATE installment_applications
+        SET reviewer_id = ?,
+            decision_date = ?,
+            status = ?,
+            decision_reason = ?
+        WHERE application_id = ?
+        """;
 
-        try (Connection connection = databaseManager.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
 
             if (reviewerId == null) {
                 statement.setNull(1, java.sql.Types.BIGINT);

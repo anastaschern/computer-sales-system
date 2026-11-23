@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -17,16 +18,7 @@ class ServerConfigTest {
 
     @Test
     void shouldLoadConfiguration() throws IOException {
-        Path file = createConfigFile(
-                "server.host=127.0.0.1\n"
-                        + "server.port=8080\n"
-                        + "server.thread-pool-size=20\n"
-                        + "server.session-timeout-seconds=1800\n"
-                        + "database.url=jdbc:postgresql://localhost:5432/computer_sales\n"
-                        + "database.username=postgres\n"
-                        + "database.password=secret\n"
-                        + "database.pool-size=10\n"
-        );
+        Path file = createConfigFile(validConfiguration());
 
         ServerConfig config = ServerConfig.load(file);
 
@@ -42,19 +34,28 @@ class ServerConfigTest {
         assertEquals("postgres", config.getDatabaseUsername());
         assertEquals("secret", config.getDatabasePassword());
         assertEquals(10, config.getDatabasePoolSize());
+
+        assertEquals(3, config.getMinInstallmentTerm());
+        assertEquals(24, config.getMaxInstallmentTerm());
+        assertEquals(
+                new BigDecimal("10"),
+                config.getMinDownPaymentPercent()
+        );
+        assertEquals(
+                new BigDecimal("10000.00"),
+                config.getMaxFinancedAmount()
+        );
+        assertEquals(2, config.getMaxActiveInstallments());
     }
 
     @Test
     void shouldRejectMissingRequiredProperty() throws IOException {
-        Path file = createConfigFile(
-                "server.host=127.0.0.1\n"
-                        + "server.port=8080\n"
-                        + "server.thread-pool-size=20\n"
-                        + "server.session-timeout-seconds=1800\n"
-                        + "database.url=jdbc:postgresql://localhost:5432/computer_sales\n"
-                        + "database.username=postgres\n"
-                        + "database.pool-size=10\n"
+        String configuration = validConfiguration().replace(
+                "database.password=secret\n",
+                ""
         );
+
+        Path file = createConfigFile(configuration);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -64,16 +65,12 @@ class ServerConfigTest {
 
     @Test
     void shouldRejectInvalidServerPort() throws IOException {
-        Path file = createConfigFile(
-                "server.host=127.0.0.1\n"
-                        + "server.port=70000\n"
-                        + "server.thread-pool-size=20\n"
-                        + "server.session-timeout-seconds=1800\n"
-                        + "database.url=jdbc:postgresql://localhost:5432/computer_sales\n"
-                        + "database.username=postgres\n"
-                        + "database.password=secret\n"
-                        + "database.pool-size=10\n"
+        String configuration = validConfiguration().replace(
+                "server.port=8080",
+                "server.port=70000"
         );
+
+        Path file = createConfigFile(configuration);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -83,16 +80,12 @@ class ServerConfigTest {
 
     @Test
     void shouldRejectInvalidDatabasePoolSize() throws IOException {
-        Path file = createConfigFile(
-                "server.host=127.0.0.1\n"
-                        + "server.port=8080\n"
-                        + "server.thread-pool-size=20\n"
-                        + "server.session-timeout-seconds=1800\n"
-                        + "database.url=jdbc:postgresql://localhost:5432/computer_sales\n"
-                        + "database.username=postgres\n"
-                        + "database.password=secret\n"
-                        + "database.pool-size=0\n"
+        String configuration = validConfiguration().replace(
+                "database.pool-size=10",
+                "database.pool-size=0"
         );
+
+        Path file = createConfigFile(configuration);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -102,16 +95,12 @@ class ServerConfigTest {
 
     @Test
     void shouldRejectInvalidThreadPoolSize() throws IOException {
-        Path file = createConfigFile(
-                "server.host=127.0.0.1\n"
-                        + "server.port=8080\n"
-                        + "server.thread-pool-size=0\n"
-                        + "server.session-timeout-seconds=1800\n"
-                        + "database.url=jdbc:postgresql://localhost:5432/computer_sales\n"
-                        + "database.username=postgres\n"
-                        + "database.password=secret\n"
-                        + "database.pool-size=10\n"
+        String configuration = validConfiguration().replace(
+                "server.thread-pool-size=20",
+                "server.thread-pool-size=0"
         );
+
+        Path file = createConfigFile(configuration);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -121,21 +110,93 @@ class ServerConfigTest {
 
     @Test
     void shouldRejectInvalidSessionTimeout() throws IOException {
-        Path file = createConfigFile(
-                "server.host=127.0.0.1\n"
-                        + "server.port=8080\n"
-                        + "server.thread-pool-size=20\n"
-                        + "server.session-timeout-seconds=0\n"
-                        + "database.url=jdbc:postgresql://localhost:5432/computer_sales\n"
-                        + "database.username=postgres\n"
-                        + "database.password=secret\n"
-                        + "database.pool-size=10\n"
+        String configuration = validConfiguration().replace(
+                "server.session-timeout-seconds=1800",
+                "server.session-timeout-seconds=0"
         );
+
+        Path file = createConfigFile(configuration);
 
         assertThrows(
                 IllegalArgumentException.class,
                 () -> ServerConfig.load(file)
         );
+    }
+
+    @Test
+    void shouldRejectInvalidInstallmentTermRange() throws IOException {
+        String configuration = validConfiguration().replace(
+                "rules.term.max=24",
+                "rules.term.max=2"
+        );
+
+        Path file = createConfigFile(configuration);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ServerConfig.load(file)
+        );
+    }
+
+    @Test
+    void shouldRejectInvalidDownPaymentPercent() throws IOException {
+        String configuration = validConfiguration().replace(
+                "rules.down_payment.min_percent=10",
+                "rules.down_payment.min_percent=101"
+        );
+
+        Path file = createConfigFile(configuration);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ServerConfig.load(file)
+        );
+    }
+
+    @Test
+    void shouldRejectInvalidMaximumFinancedAmount() throws IOException {
+        String configuration = validConfiguration().replace(
+                "rules.financed.max=10000.00",
+                "rules.financed.max=0"
+        );
+
+        Path file = createConfigFile(configuration);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ServerConfig.load(file)
+        );
+    }
+
+    @Test
+    void shouldRejectInvalidMaximumActiveInstallments() throws IOException {
+        String configuration = validConfiguration().replace(
+                "rules.active.max=2",
+                "rules.active.max=0"
+        );
+
+        Path file = createConfigFile(configuration);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ServerConfig.load(file)
+        );
+    }
+
+    private String validConfiguration() {
+        return "server.host=127.0.0.1\n"
+                + "server.port=8080\n"
+                + "server.thread-pool-size=20\n"
+                + "server.session-timeout-seconds=1800\n"
+                + "database.url=jdbc:postgresql://localhost:5432/computer_sales\n"
+                + "database.username=postgres\n"
+                + "database.password=secret\n"
+                + "database.pool-size=10\n"
+                + "rules.term.min=3\n"
+                + "rules.term.max=24\n"
+                + "rules.down_payment.min_percent=10\n"
+                + "rules.financed.max=10000.00\n"
+                + "rules.active.max=2\n";
     }
 
     private Path createConfigFile(String content) throws IOException {

@@ -52,9 +52,11 @@ public class ClientAuthService implements AutoCloseable {
         }
 
         // Устанавливаем соединение, если оно ещё не открыто.
-        if (!connection.isConnected()) {
-            connection.connect(host, port);
-        }
+        // Закрываем возможное старое соединение.
+        connection.close();
+
+// Всегда устанавливаем новое TCP-соединение.
+        connection.connect(host, port);
 
         // Формируем запрос авторизации.
         Request request = new Request(
