@@ -347,7 +347,154 @@ class InstallmentServiceTest {
 
         assertTrue(errors.isEmpty());
     }
+    // R6 — ограничение количества действующих рассрочек
 
+    @Test
+    void validateApplicationShouldRejectWhenActiveInstallmentLimitReached() {
+        Customer customer = createCustomer();
+
+        Sale currentSale = createSale(1L, customer, "1000");
+        Sale activeSale1 = createSale(2L, customer, "1000");
+        Sale activeSale2 = createSale(3L, customer, "1000");
+
+        InstallmentApplication currentApplication =
+                createApplication(currentSale, 1L);
+
+        InstallmentApplication activeApplication1 =
+                createApplication(activeSale1, 2L);
+
+        InstallmentApplication activeApplication2 =
+                createApplication(activeSale2, 3L);
+
+        activeApplication1.setStatus(
+                InstallmentApplicationStatus.APPROVED
+        );
+
+        activeApplication2.setStatus(
+                InstallmentApplicationStatus.IN_PROGRESS
+        );
+
+        applicationDao.add(currentApplication);
+        applicationDao.add(activeApplication1);
+        applicationDao.add(activeApplication2);
+
+        saleDao.setCustomerSales(
+                List.of(currentSale, activeSale1, activeSale2)
+        );
+
+        List<String> errors =
+                service.validateApplication(currentApplication);
+
+        assertFalse(errors.isEmpty());
+    }
+
+    @Test
+    void validateApplicationShouldAcceptWhenActiveInstallmentLimitNotReached() {
+        Customer customer = createCustomer();
+
+        Sale currentSale = createSale(1L, customer, "1000");
+        Sale activeSale = createSale(2L, customer, "1000");
+
+        InstallmentApplication currentApplication =
+                createApplication(currentSale, 1L);
+
+        InstallmentApplication activeApplication =
+                createApplication(activeSale, 2L);
+
+        activeApplication.setStatus(
+                InstallmentApplicationStatus.APPROVED
+        );
+
+        applicationDao.add(currentApplication);
+        applicationDao.add(activeApplication);
+
+        saleDao.setCustomerSales(
+                List.of(currentSale, activeSale)
+        );
+
+        List<String> errors =
+                service.validateApplication(currentApplication);
+
+        assertTrue(errors.isEmpty());
+    }
+
+    @Test
+    void validateApplicationShouldNotCountCurrentApplication() {
+        Customer customer = createCustomer();
+
+        Sale currentSale = createSale(1L, customer, "1000");
+        Sale otherActiveSale = createSale(2L, customer, "1000");
+
+        InstallmentApplication currentApplication =
+                createApplication(currentSale, 1L);
+
+        InstallmentApplication otherApplication =
+                createApplication(otherActiveSale, 2L);
+
+        // Текущая заявка уже имеет активный статус.
+        currentApplication.setStatus(
+                InstallmentApplicationStatus.APPROVED
+        );
+
+        otherApplication.setStatus(
+                InstallmentApplicationStatus.IN_PROGRESS
+        );
+
+        applicationDao.add(currentApplication);
+        applicationDao.add(otherApplication);
+
+        saleDao.setCustomerSales(
+                List.of(currentSale, otherActiveSale)
+        );
+
+        List<String> errors =
+                service.validateApplication(currentApplication);
+
+        assertTrue(errors.isEmpty());
+    }
+
+    @Test
+    void validateApplicationShouldNotCountCompletedInstallments() {
+        Customer customer = createCustomer();
+
+        Sale currentSale = createSale(1L, customer, "1000");
+        Sale completedSale1 = createSale(2L, customer, "1000");
+        Sale completedSale2 = createSale(3L, customer, "1000");
+
+        InstallmentApplication currentApplication =
+                createApplication(currentSale, 1L);
+
+        InstallmentApplication completedApplication1 =
+                createApplication(completedSale1, 2L);
+
+        InstallmentApplication completedApplication2 =
+                createApplication(completedSale2, 3L);
+
+        completedApplication1.setStatus(
+                InstallmentApplicationStatus.COMPLETED
+        );
+
+        completedApplication2.setStatus(
+                InstallmentApplicationStatus.COMPLETED
+        );
+
+        applicationDao.add(currentApplication);
+        applicationDao.add(completedApplication1);
+        applicationDao.add(completedApplication2);
+
+        saleDao.setCustomerSales(
+                List.of(
+                        currentSale,
+                        completedSale1,
+                        completedSale2
+                )
+        );
+
+        List<String> errors =
+                service.validateApplication(currentApplication);
+
+        assertTrue(errors.isEmpty());
+    }
     // Вспомогательные методы
 
     private Customer createCustomer() {

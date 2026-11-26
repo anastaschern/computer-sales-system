@@ -395,6 +395,94 @@ public class InstallmentService {
         return errors;
     }
     /**
+     * Проверяет количество действующих рассрочек покупателя
+     * в соответствии с правилом R6.
+     *
+     * Активными считаются заявки со статусами APPROVED
+     * и IN_PROGRESS. Текущая проверяемая заявка исключается
+     * из подсчёта.
+     *
+     * @param application проверяемая заявка
+     * @return список обнаруженных нарушений
+     */
+    private List<String> validateActiveInstallments(
+            InstallmentApplication application
+    ) {
+        List<String> errors = new ArrayList<>();
+
+        if (application == null
+                || application.getSale() == null
+                || application.getSale().getCustomer() == null) {
+            errors.add(
+                    "Невозможно проверить количество действующих рассрочек: "
+                            + "отсутствуют данные заявки или покупателя"
+            );
+            return errors;
+        }
+
+        Long customerId = application.getSale()
+                .getCustomer()
+                .getCustomerId();
+
+        if (customerId == null) {
+            errors.add(
+                    "Невозможно проверить количество действующих рассрочек: "
+                            + "не определён покупатель"
+            );
+            return errors;
+        }
+
+        Long currentSaleId = application.getSale().getSaleId();
+
+        int activeCount = 0;
+
+        List<Sale> customerSales =
+                saleDao.findByCustomerId(customerId);
+
+        for (Sale sale : customerSales) {
+            if (sale == null || sale.getSaleId() == null) {
+                continue;
+            }
+
+            // Не учитываем продажу текущей заявки.
+            if (Objects.equals(currentSaleId, sale.getSaleId())) {
+                continue;
+            }
+
+            Optional<InstallmentApplication> otherApplicationOptional =
+                    applicationDao.findBySaleId(sale.getSaleId());
+
+            if (otherApplicationOptional.isEmpty()) {
+                continue;
+            }
+
+            InstallmentApplication otherApplication =
+                    otherApplicationOptional.get();
+
+            InstallmentApplicationStatus status =
+                    otherApplication.getStatus();
+
+            if (status == InstallmentApplicationStatus.APPROVED
+                    || status == InstallmentApplicationStatus.IN_PROGRESS) {
+                activeCount++;
+            }
+        }
+
+        int maxActiveInstallments =
+                serverConfig.getMaxActiveInstallments();
+
+        if (activeCount >= maxActiveInstallments) {
+            errors.add(
+                    "Превышено допустимое количество действующих рассрочек "
+                            + "(максимум "
+                            + maxActiveInstallments
+                            + ")"
+            );
+        }
+
+        return errors;
+    }
+    /**
      * Выполняет комплексную проверку заявки на рассрочку
      * по правилам R1–R5.
      *
@@ -423,11 +511,16 @@ public class InstallmentService {
             errors.addAll(validateDownPayment(application));
             errors.addAll(validateFinancedAmount(application));
         }
-
         // R5 — проверка просроченных платежей по другим рассрочкам.
         if (application.getSale() != null
                 && application.getSale().getCustomer() != null) {
             errors.addAll(validateOverduePayments(application));
+        }
+
+        // R6 — проверка количества действующих рассрочек покупателя.
+        if (application.getSale() != null
+                && application.getSale().getCustomer() != null) {
+            errors.addAll(validateActiveInstallments(application));
         }
 
         return errors;
