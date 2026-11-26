@@ -394,4 +394,42 @@ public class InstallmentService {
 
         return errors;
     }
+    /**
+     * Выполняет комплексную проверку заявки на рассрочку
+     * по правилам R1–R5.
+     *
+     * @param application проверяемая заявка
+     * @return список обнаруженных нарушений; пустой список означает,
+     * что нарушений не обнаружено
+     */
+    public List<String> validateApplication(
+            InstallmentApplication application
+    ) {
+        List<String> errors = new ArrayList<>();
+
+        // R1 — проверка полноты данных заявки.
+        errors.addAll(validateApplicationCompleteness(application));
+
+        if (application == null) {
+            return errors;
+        }
+
+        // R2 — проверка срока рассрочки.
+        errors.addAll(validateInstallmentTerm(application));
+
+        // R3 и R4 требуют наличия продажи и первоначального взноса.
+        if (application.getSale() != null
+                && application.getDownPaymentAmount() != null) {
+            errors.addAll(validateDownPayment(application));
+            errors.addAll(validateFinancedAmount(application));
+        }
+
+        // R5 — проверка просроченных платежей по другим рассрочкам.
+        if (application.getSale() != null
+                && application.getSale().getCustomer() != null) {
+            errors.addAll(validateOverduePayments(application));
+        }
+
+        return errors;
+    }
 }
