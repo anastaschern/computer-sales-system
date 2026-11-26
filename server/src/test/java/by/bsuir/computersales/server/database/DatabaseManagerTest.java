@@ -16,15 +16,15 @@ class DatabaseManagerTest {
 
     @Test
     void shouldConnectToPostgreSqlDatabase() throws Exception {
-        // Проверяем наличие локального файла настроек.
-        Path configPath = Path.of("../server.properties");
+        // Используем отдельную тестовую конфигурацию.
+        Path configPath = Path.of("../server-test.properties");
 
         assertTrue(
                 Files.exists(configPath),
-                "Файл server.properties не найден в корне проекта"
+                "Файл server-test.properties не найден в корне проекта"
         );
 
-        // Загружаем настройки сервера.
+        // Загружаем настройки тестового сервера.
         ServerConfig serverConfig = ServerConfig.load(configPath);
 
         // Создаём пул подключений.
@@ -38,7 +38,7 @@ class DatabaseManagerTest {
                 assertNotNull(connection);
                 assertTrue(connection.isValid(5));
 
-                // Проверяем название подключённой базы данных.
+                // Проверяем название тестовой базы данных.
                 try (Statement statement = connection.createStatement();
                      ResultSet resultSet = statement.executeQuery(
                              "SELECT current_database()"
@@ -47,7 +47,7 @@ class DatabaseManagerTest {
                     assertTrue(resultSet.next());
 
                     assertEquals(
-                            "installment_shop",
+                            "installment_shop_test",
                             resultSet.getString(1)
                     );
                 }
