@@ -4,6 +4,7 @@ package by.bsuir.computersales.server.dao;
 import by.bsuir.computersales.common.model.InstallmentApplication;
 import by.bsuir.computersales.common.model.InstallmentApplicationStatus;
 
+import java.sql.Connection;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,4 +68,16 @@ public interface InstallmentApplicationDao {
      * @param application изменённые данные заявки
      */
     void update(InstallmentApplication application);
+    /**
+     * Обновляет заявку в рамках существующей транзакции.
+     *
+     * @param connection соединение с базой данных
+     * @param application изменённые данные заявки
+     */
+    default void update(
+            Connection connection,
+            InstallmentApplication application
+    ) {
+        update(application);
+    }
 }

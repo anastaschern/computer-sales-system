@@ -12,7 +12,13 @@ import by.bsuir.computersales.server.dao.SaleDao;
 import by.bsuir.computersales.common.model.Payment;
 import by.bsuir.computersales.common.model.PaymentScheduleItem;
 import by.bsuir.computersales.common.model.InstallmentApplicationStatus;
+import by.bsuir.computersales.common.model.User;
+import by.bsuir.computersales.server.database.DatabaseManager;
+import by.bsuir.computersales.server.exception.BusinessRuleException;
+import by.bsuir.computersales.server.exception.ValidationException;
+import by.bsuir.computersales.common.model.RoleType;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.time.LocalDate;
 import java.math.BigDecimal;
@@ -33,15 +39,12 @@ public class InstallmentService {
     private final PaymentDao paymentDao;
     private final SaleDao saleDao;
     private final ServerConfig serverConfig;
+    private final DatabaseManager databaseManager;
+
 
     /**
-     * Создаёт сервис рассрочек.
-     *
-     * @param applicationDao доступ к заявкам на рассрочку
-     * @param paymentScheduleDao доступ к графикам платежей
-     * @param paymentDao доступ к фактическим платежам
-     * @param saleDao доступ к продажам
-     * @param serverConfig настройки и ограничения рассрочки
+     * Создаёт сервис рассрочек без возможности выполнения транзакционного
+     * утверждения заявки. Используется, например, при проверке правил.
      */
     public InstallmentService(
             InstallmentApplicationDao applicationDao,
@@ -49,6 +52,34 @@ public class InstallmentService {
             PaymentDao paymentDao,
             SaleDao saleDao,
             ServerConfig serverConfig
+    ) {
+        this(
+                applicationDao,
+                paymentScheduleDao,
+                paymentDao,
+                saleDao,
+                serverConfig,
+                null
+        );
+    }
+
+    /**
+     * Создаёт сервис рассрочек с поддержкой транзакций.
+     *
+     * @param applicationDao доступ к заявкам на рассрочку
+     * @param paymentScheduleDao доступ к графикам платежей
+     * @param paymentDao доступ к фактическим платежам
+     * @param saleDao доступ к продажам
+     * @param serverConfig настройки и ограничения рассрочки
+     * @param databaseManager менеджер базы данных
+     */
+    public InstallmentService(
+            InstallmentApplicationDao applicationDao,
+            PaymentScheduleDao paymentScheduleDao,
+            PaymentDao paymentDao,
+            SaleDao saleDao,
+            ServerConfig serverConfig,
+            DatabaseManager databaseManager
     ) {
         this.applicationDao = Objects.requireNonNull(
                 applicationDao,
@@ -74,6 +105,8 @@ public class InstallmentService {
                 serverConfig,
                 "ServerConfig не должен быть null"
         );
+
+        this.databaseManager = databaseManager;
     }
 
     /**
@@ -483,8 +516,103 @@ public class InstallmentService {
         return errors;
     }
     /**
+     * Утверждает заявку на рассрочку и создаёт график платежей.
+     *
+     * Изменение статуса заявки и сохранение графика выполняются
+     * в рамках одной транзакции.
+     *
+     * @param applicationId идентификатор заявки
+     * @param reviewer сотрудник, утверждающий заявку
+     * @return сформированный график платежей
+     */
+    public List<PaymentScheduleItem> approveApplication(
+            Long applicationId,
+            User reviewer
+    ) {
+        if (databaseManager == null) {
+            throw new IllegalStateException(
+                    "Для утверждения заявки необходим DatabaseManager"
+            );
+        }
+
+        if (applicationId == null || applicationId <= 0) {
+            throw new ValidationException(
+                    "Идентификатор заявки должен быть положительным"
+            );
+        }
+
+        if (reviewer == null
+                || reviewer.getUserId() == null
+                || reviewer.getUserId() <= 0) {
+            throw new ValidationException(
+                    "Необходимо указать сотрудника, утверждающего заявку"
+            );
+        }
+
+        if (!reviewer.isActive()) {
+            throw new BusinessRuleException(
+                    "Неактивный сотрудник не может утверждать заявку"
+            );
+        }
+        if (reviewer.getRole() == null
+                || (reviewer.getRole().getRoleType() != RoleType.ADMIN
+                && reviewer.getRole().getRoleType()
+                != RoleType.INSTALLMENT_SPECIALIST)) {
+            throw new BusinessRuleException(
+                    "Недостаточно прав для утверждения заявки на рассрочку"
+            );
+        }
+        InstallmentApplication application =
+                applicationDao.findById(applicationId)
+                        .orElseThrow(() -> new ValidationException(
+                                "Заявка с идентификатором "
+                                        + applicationId + " не найдена"
+                        ));
+
+        InstallmentApplicationStatus currentStatus =
+                application.getStatus();
+
+        if (currentStatus != InstallmentApplicationStatus.CREATED
+                && currentStatus != InstallmentApplicationStatus.ON_REVIEW) {
+            throw new BusinessRuleException(
+                    "Можно утверждать только созданные заявки "
+                            + "или заявки, находящиеся на рассмотрении"
+            );
+        }
+
+        List<String> errors = validateApplication(application);
+
+        if (!errors.isEmpty()) {
+            throw new BusinessRuleException(
+                    "Заявка не может быть утверждена: "
+                            + String.join("; ", errors)
+            );
+        }
+
+        LocalDateTime approvalDateTime = LocalDateTime.now();
+        LocalDate approvalDate = approvalDateTime.toLocalDate();
+
+        application.setReviewer(reviewer);
+        application.setDecisionDate(approvalDateTime);
+        application.setDecisionReason(null);
+        application.setStatus(InstallmentApplicationStatus.APPROVED);
+
+        ScheduleCalculator calculator = new ScheduleCalculator();
+
+        List<PaymentScheduleItem> scheduleItems =
+                calculator.calculate(application, approvalDate);
+
+        return databaseManager.executeInTransaction(connection -> {
+            applicationDao.update(connection, application);
+            paymentScheduleDao.createAll(connection, scheduleItems);
+
+            return scheduleItems;
+        });
+    }
+
+    /**
      * Выполняет комплексную проверку заявки на рассрочку
-     * по правилам R1–R5.
+     * по правилам R1–R6.
      *
      * @param application проверяемая заявка
      * @return список обнаруженных нарушений; пустой список означает,

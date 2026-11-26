@@ -3,6 +3,7 @@ package by.bsuir.computersales.server.dao;
 
 import by.bsuir.computersales.common.model.PaymentScheduleItem;
 
+import java.sql.Connection;
 import java.util.List;
 
 /**
@@ -38,4 +39,16 @@ public interface PaymentScheduleDao {
      * @param applicationId идентификатор заявки
      */
     void deleteByApplicationId(Long applicationId);
+    /**
+     * Добавляет записи графика в рамках существующей транзакции.
+     *
+     * @param connection соединение с базой данных
+     * @param items список записей графика
+     */
+    default void createAll(
+            Connection connection,
+            List<PaymentScheduleItem> items
+    ) {
+        createAll(items);
+    }
 }
