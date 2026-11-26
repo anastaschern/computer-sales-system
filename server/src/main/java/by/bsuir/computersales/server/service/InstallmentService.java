@@ -11,6 +11,7 @@ import by.bsuir.computersales.server.dao.PaymentScheduleDao;
 import by.bsuir.computersales.server.dao.SaleDao;
 import by.bsuir.computersales.common.model.Payment;
 import by.bsuir.computersales.common.model.PaymentScheduleItem;
+import by.bsuir.computersales.common.model.InstallmentApplicationStatus;
 
 import java.util.Optional;
 import java.time.LocalDate;
@@ -328,6 +329,15 @@ public class InstallmentService {
                     application.getApplicationId(),
                     otherApplication.getApplicationId()
             )) {
+                continue;
+            }
+
+            InstallmentApplicationStatus otherStatus =
+                    otherApplication.getStatus();
+
+            if (otherStatus != InstallmentApplicationStatus.APPROVED
+                    && otherStatus
+                    != InstallmentApplicationStatus.IN_PROGRESS) {
                 continue;
             }
 
