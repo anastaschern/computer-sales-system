@@ -1,30 +1,30 @@
-
 package by.bsuir.computersales.server.service;
 
 import by.bsuir.computersales.common.model.Customer;
 import by.bsuir.computersales.common.model.InstallmentApplication;
+import by.bsuir.computersales.common.model.InstallmentApplicationStatus;
+import by.bsuir.computersales.common.model.Payment;
+import by.bsuir.computersales.common.model.PaymentScheduleItem;
+import by.bsuir.computersales.common.model.RoleType;
 import by.bsuir.computersales.common.model.Sale;
+import by.bsuir.computersales.common.model.User;
 import by.bsuir.computersales.server.config.ServerConfig;
 import by.bsuir.computersales.server.dao.InstallmentApplicationDao;
 import by.bsuir.computersales.server.dao.PaymentDao;
 import by.bsuir.computersales.server.dao.PaymentScheduleDao;
 import by.bsuir.computersales.server.dao.SaleDao;
-import by.bsuir.computersales.common.model.Payment;
-import by.bsuir.computersales.common.model.PaymentScheduleItem;
-import by.bsuir.computersales.common.model.InstallmentApplicationStatus;
-import by.bsuir.computersales.common.model.User;
 import by.bsuir.computersales.server.database.DatabaseManager;
 import by.bsuir.computersales.server.exception.BusinessRuleException;
 import by.bsuir.computersales.server.exception.ValidationException;
-import by.bsuir.computersales.common.model.RoleType;
 
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.time.LocalDate;
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Сервис для выполнения операций с рассрочками.
@@ -39,12 +39,40 @@ public class InstallmentService {
     private final PaymentDao paymentDao;
     private final SaleDao saleDao;
     private final ServerConfig serverConfig;
-    private final DatabaseManager databaseManager;
-
+    private final TransactionExecutor transactionExecutor;
 
     /**
-     * Создаёт сервис рассрочек без возможности выполнения транзакционного
-     * утверждения заявки. Используется, например, при проверке правил.
+     * Исполнитель транзакций.
+     *
+     * Используется для выполнения нескольких операций с базой данных
+     * в рамках одной транзакции.
+     */
+    @FunctionalInterface
+    interface TransactionExecutor {
+
+        List<PaymentScheduleItem> execute(TransactionOperation operation);
+    }
+
+    /**
+     * Операция, выполняемая внутри транзакции.
+     */
+    @FunctionalInterface
+    interface TransactionOperation {
+
+        List<PaymentScheduleItem> execute(Connection connection);
+    }
+
+    /**
+     * Создаёт сервис рассрочек без возможности выполнения
+     * транзакционного утверждения заявки.
+     *
+     * Используется, например, при проверке правил рассрочки.
+     *
+     * @param applicationDao доступ к заявкам на рассрочку
+     * @param paymentScheduleDao доступ к графикам платежей
+     * @param paymentDao доступ к фактическим платежам
+     * @param saleDao доступ к продажам
+     * @param serverConfig настройки и ограничения рассрочки
      */
     public InstallmentService(
             InstallmentApplicationDao applicationDao,
@@ -59,7 +87,7 @@ public class InstallmentService {
                 paymentDao,
                 saleDao,
                 serverConfig,
-                null
+                (DatabaseManager) null
         );
     }
 
@@ -80,6 +108,41 @@ public class InstallmentService {
             SaleDao saleDao,
             ServerConfig serverConfig,
             DatabaseManager databaseManager
+    ) {
+        this(
+                applicationDao,
+                paymentScheduleDao,
+                paymentDao,
+                saleDao,
+                serverConfig,
+                databaseManager == null
+                        ? null
+                        : operation -> databaseManager.executeInTransaction(
+                        operation::execute
+                ),
+                true
+        );
+    }
+
+    /**
+     * Внутренний конструктор сервиса.
+     *
+     * @param applicationDao доступ к заявкам
+     * @param paymentScheduleDao доступ к графикам платежей
+     * @param paymentDao доступ к платежам
+     * @param saleDao доступ к продажам
+     * @param serverConfig настройки рассрочки
+     * @param transactionExecutor исполнитель транзакций
+     * @param internal признак внутреннего вызова конструктора
+     */
+    private InstallmentService(
+            InstallmentApplicationDao applicationDao,
+            PaymentScheduleDao paymentScheduleDao,
+            PaymentDao paymentDao,
+            SaleDao saleDao,
+            ServerConfig serverConfig,
+            TransactionExecutor transactionExecutor,
+            boolean internal
     ) {
         this.applicationDao = Objects.requireNonNull(
                 applicationDao,
@@ -106,15 +169,48 @@ public class InstallmentService {
                 "ServerConfig не должен быть null"
         );
 
-        this.databaseManager = databaseManager;
+        this.transactionExecutor = transactionExecutor;
+    }
+
+    /**
+     * Создаёт сервис с переданным исполнителем транзакций.
+     *
+     * Метод предназначен для тестирования бизнес-логики
+     * утверждения заявок без подключения к реальной базе данных.
+     *
+     * @param applicationDao доступ к заявкам
+     * @param paymentScheduleDao доступ к графикам платежей
+     * @param paymentDao доступ к платежам
+     * @param saleDao доступ к продажам
+     * @param serverConfig настройки рассрочки
+     * @param transactionExecutor исполнитель транзакций
+     * @return созданный сервис
+     */
+    static InstallmentService withTransactionExecutor(
+            InstallmentApplicationDao applicationDao,
+            PaymentScheduleDao paymentScheduleDao,
+            PaymentDao paymentDao,
+            SaleDao saleDao,
+            ServerConfig serverConfig,
+            TransactionExecutor transactionExecutor
+    ) {
+        return new InstallmentService(
+                applicationDao,
+                paymentScheduleDao,
+                paymentDao,
+                saleDao,
+                serverConfig,
+                Objects.requireNonNull(
+                        transactionExecutor,
+                        "TransactionExecutor не должен быть null"
+                ),
+                true
+        );
     }
 
     /**
      * Проверяет полноту и корректность основных данных заявки
      * в соответствии с правилом R1.
-     *
-     * При обнаружении нарушений возвращает список причин,
-     * по которым заявка должна быть возвращена на уточнение.
      *
      * @param application проверяемая заявка
      * @return список обнаруженных нарушений
@@ -132,7 +228,9 @@ public class InstallmentService {
         Sale sale = application.getSale();
 
         if (sale == null) {
-            errors.add("Не указана продажа, для которой оформляется рассрочка");
+            errors.add(
+                    "Не указана продажа, для которой оформляется рассрочка"
+            );
             return errors;
         }
 
@@ -167,7 +265,9 @@ public class InstallmentService {
             errors.add("Не указан первоначальный взнос");
         } else {
             if (downPayment.compareTo(BigDecimal.ZERO) < 0) {
-                errors.add("Первоначальный взнос не может быть отрицательным");
+                errors.add(
+                        "Первоначальный взнос не может быть отрицательным"
+                );
             }
 
             BigDecimal totalAmount = sale.getTotalAmount();
@@ -181,6 +281,7 @@ public class InstallmentService {
 
         return errors;
     }
+
     /**
      * Проверяет соответствие срока рассрочки установленным ограничениям
      * в соответствии с правилом R2.
@@ -218,6 +319,7 @@ public class InstallmentService {
 
         return errors;
     }
+
     /**
      * Проверяет соответствие первоначального взноса минимальному проценту
      * от стоимости продажи в соответствии с правилом R3.
@@ -231,7 +333,10 @@ public class InstallmentService {
         List<String> errors = new ArrayList<>();
 
         if (application == null || application.getSale() == null) {
-            errors.add("Невозможно проверить первоначальный взнос: отсутствуют данные заявки или продажи");
+            errors.add(
+                    "Невозможно проверить первоначальный взнос: "
+                            + "отсутствуют данные заявки или продажи"
+            );
             return errors;
         }
 
@@ -259,6 +364,7 @@ public class InstallmentService {
 
         return errors;
     }
+
     /**
      * Проверяет, не превышает ли сумма финансирования
      * максимально допустимое значение в соответствии с правилом R4.
@@ -302,6 +408,7 @@ public class InstallmentService {
 
         return errors;
     }
+
     /**
      * Проверяет наличие просроченных платежей по другим рассрочкам
      * покупателя в соответствии с правилом R5.
@@ -341,7 +448,8 @@ public class InstallmentService {
 
         LocalDate today = LocalDate.now();
 
-        List<Sale> customerSales = saleDao.findByCustomerId(customerId);
+        List<Sale> customerSales =
+                saleDao.findByCustomerId(customerId);
 
         for (Sale sale : customerSales) {
             if (sale == null || sale.getSaleId() == null) {
@@ -382,7 +490,9 @@ public class InstallmentService {
             }
 
             List<PaymentScheduleItem> scheduleItems =
-                    paymentScheduleDao.findByApplicationId(otherApplicationId);
+                    paymentScheduleDao.findByApplicationId(
+                            otherApplicationId
+                    );
 
             List<Payment> actualPayments =
                     paymentDao.findByApplicationId(otherApplicationId);
@@ -427,6 +537,7 @@ public class InstallmentService {
 
         return errors;
     }
+
     /**
      * Проверяет количество действующих рассрочек покупателя
      * в соответствии с правилом R6.
@@ -515,6 +626,7 @@ public class InstallmentService {
 
         return errors;
     }
+
     /**
      * Утверждает заявку на рассрочку и создаёт график платежей.
      *
@@ -529,7 +641,7 @@ public class InstallmentService {
             Long applicationId,
             User reviewer
     ) {
-        if (databaseManager == null) {
+        if (transactionExecutor == null) {
             throw new IllegalStateException(
                     "Для утверждения заявки необходим DatabaseManager"
             );
@@ -554,6 +666,7 @@ public class InstallmentService {
                     "Неактивный сотрудник не может утверждать заявку"
             );
         }
+
         if (reviewer.getRole() == null
                 || (reviewer.getRole().getRoleType() != RoleType.ADMIN
                 && reviewer.getRole().getRoleType()
@@ -562,6 +675,7 @@ public class InstallmentService {
                     "Недостаточно прав для утверждения заявки на рассрочку"
             );
         }
+
         InstallmentApplication application =
                 applicationDao.findById(applicationId)
                         .orElseThrow(() -> new ValidationException(
@@ -602,8 +716,9 @@ public class InstallmentService {
         List<PaymentScheduleItem> scheduleItems =
                 calculator.calculate(application, approvalDate);
 
-        return databaseManager.executeInTransaction(connection -> {
+        return transactionExecutor.execute(connection -> {
             applicationDao.update(connection, application);
+
             paymentScheduleDao.createAll(connection, scheduleItems);
 
             return scheduleItems;
@@ -633,19 +748,21 @@ public class InstallmentService {
         // R2 — проверка срока рассрочки.
         errors.addAll(validateInstallmentTerm(application));
 
-        // R3 и R4 требуют наличия продажи и первоначального взноса.
+        // R3 и R4 — проверка первоначального взноса
+        // и суммы финансирования.
         if (application.getSale() != null
                 && application.getDownPaymentAmount() != null) {
             errors.addAll(validateDownPayment(application));
             errors.addAll(validateFinancedAmount(application));
         }
+
         // R5 — проверка просроченных платежей по другим рассрочкам.
         if (application.getSale() != null
                 && application.getSale().getCustomer() != null) {
             errors.addAll(validateOverduePayments(application));
         }
 
-        // R6 — проверка количества действующих рассрочек покупателя.
+        // R6 — проверка количества действующих рассрочек.
         if (application.getSale() != null
                 && application.getSale().getCustomer() != null) {
             errors.addAll(validateActiveInstallments(application));

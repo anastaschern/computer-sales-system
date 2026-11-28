@@ -25,6 +25,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,6 +51,7 @@ class InstallmentServiceTest {
     private FakePaymentScheduleDao paymentScheduleDao;
     private FakePaymentDao paymentDao;
     private FakeSaleDao saleDao;
+    private ServerConfig config;
 
     private InstallmentService service;
 
@@ -76,7 +80,7 @@ class InstallmentServiceTest {
                 rules.active.max=2
                 """);
 
-        ServerConfig config = ServerConfig.load(configFile);
+        config = ServerConfig.load(configFile);
 
         service = new InstallmentService(
                 applicationDao,
@@ -495,6 +499,149 @@ class InstallmentServiceTest {
 
         assertTrue(errors.isEmpty());
     }
+    // Утверждение заявки и создание графика платежей
+
+    @Test
+    void approveApplicationShouldApproveApplicationAndCreateSchedule() {
+        InstallmentApplication application = createApplication(
+                createSale(1L, createCustomer(), "1000"),
+                1L
+        );
+
+        applicationDao.add(application);
+
+        InstallmentService approvalService =
+                InstallmentService.withTransactionExecutor(
+                        applicationDao,
+                        paymentScheduleDao,
+                        paymentDao,
+                        saleDao,
+                        serviceConfig(),
+                        operation -> operation.execute(null)
+                );
+
+        User reviewer = createReviewer();
+
+        List<PaymentScheduleItem> schedule =
+                approvalService.approveApplication(1L, reviewer);
+
+        assertEquals(
+                InstallmentApplicationStatus.APPROVED,
+                application.getStatus()
+        );
+
+        assertEquals(reviewer, application.getReviewer());
+        assertNotNull(application.getDecisionDate());
+
+        assertEquals(12, schedule.size());
+        assertEquals(
+                12,
+                paymentScheduleDao.findByApplicationId(1L).size()
+        );
+
+        assertEquals(
+                new BigDecimal("75.00"),
+                schedule.get(0).getPlannedAmount()
+        );
+
+        assertEquals(
+                LocalDate.now().plusMonths(1),
+                schedule.get(0).getDueDate()
+        );
+
+        assertEquals(
+                LocalDate.now().plusMonths(12),
+                schedule.get(11).getDueDate()
+        );
+    }
+
+    @Test
+    void approveApplicationShouldRejectSalesManager() {
+        InstallmentApplication application = createApplication(
+                createSale(1L, createCustomer(), "1000"),
+                1L
+        );
+
+        applicationDao.add(application);
+
+        InstallmentService approvalService =
+                InstallmentService.withTransactionExecutor(
+                        applicationDao,
+                        paymentScheduleDao,
+                        paymentDao,
+                        saleDao,
+                        serviceConfig(),
+                        operation -> operation.execute(null)
+                );
+
+        assertThrows(
+                RuntimeException.class,
+                () -> approvalService.approveApplication(
+                        1L,
+                        createUser()
+                )
+        );
+
+        assertEquals(
+                InstallmentApplicationStatus.CREATED,
+                application.getStatus()
+        );
+
+        assertTrue(
+                paymentScheduleDao.findByApplicationId(1L).isEmpty()
+        );
+    }
+
+    @Test
+    void approveApplicationShouldRejectWhenTransactionExecutorIsMissing() {
+        InstallmentApplication application = createApplication(
+                createSale(1L, createCustomer(), "1000"),
+                1L
+        );
+
+        applicationDao.add(application);
+
+        assertThrows(
+                RuntimeException.class,
+                () -> service.approveApplication(
+                        1L,
+                        createReviewer()
+                )
+        );
+    }
+
+    @Test
+    void approveApplicationShouldPropagateTransactionFailure() {
+        InstallmentApplication application = createApplication(
+                createSale(1L, createCustomer(), "1000"),
+                1L
+        );
+
+        applicationDao.add(application);
+
+        InstallmentService approvalService =
+                InstallmentService.withTransactionExecutor(
+                        applicationDao,
+                        paymentScheduleDao,
+                        paymentDao,
+                        saleDao,
+                        serviceConfig(),
+                        operation -> {
+                            throw new IllegalStateException(
+                                    "Ошибка выполнения транзакции"
+                            );
+                        }
+                );
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> approvalService.approveApplication(
+                        1L,
+                        createReviewer()
+                )
+        );
+    }
+
     // Вспомогательные методы
 
     private Customer createCustomer() {
@@ -523,6 +670,25 @@ class InstallmentServiceTest {
         );
     }
 
+    private User createReviewer() {
+        Role role = new Role(
+                2L,
+                RoleType.ADMIN,
+                "Администратор"
+        );
+
+        return new User(
+                2L,
+                "test_admin",
+                role,
+                true,
+                LocalDateTime.now()
+        );
+    }
+
+    private ServerConfig serviceConfig() {
+        return config;
+    }
     private Sale createSale(
             Long saleId,
             Customer customer,
