@@ -388,4 +388,75 @@ class PaymentDaoImplTest {
                 referenceNumber
         );
     }
+    @Test
+    void lockByIdShouldLockExistingApplication() {
+        assertDoesNotThrow(() ->
+                databaseManager.executeInTransaction(connection -> {
+                    applicationDao.lockById(
+                            connection,
+                            applicationId
+                    );
+                    return null;
+                })
+        );
+    }
+
+    @Test
+    void lockByIdShouldThrowWhenApplicationDoesNotExist() {
+        assertThrows(
+                ValidationException.class,
+                () -> databaseManager.executeInTransaction(
+                        connection -> {
+                            applicationDao.lockById(
+                                    connection,
+                                    999999L
+                            );
+                            return null;
+                        }
+                )
+        );
+    }
+
+    @Test
+    void lockByIdShouldRejectNullConnection() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> applicationDao.lockById(
+                        null,
+                        applicationId
+                )
+        );
+    }
+
+    @Test
+    void lockByIdShouldRejectInvalidApplicationId() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> databaseManager.executeInTransaction(
+                        connection -> {
+                            applicationDao.lockById(
+                                    connection,
+                                    0L
+                            );
+                            return null;
+                        }
+                )
+        );
+    }
+
+    @Test
+    void lockByIdShouldRejectNegativeApplicationId() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> databaseManager.executeInTransaction(
+                        connection -> {
+                            applicationDao.lockById(
+                                    connection,
+                                    -1L
+                            );
+                            return null;
+                        }
+                )
+        );
+    }
 }

@@ -116,52 +116,38 @@ public class PaymentDaoImpl implements PaymentDao {
                 "получить платежи по заявке на рассрочку"
         );
     }
-    // Пример метода для регистрации платежа с блокировкой
-    public void registerPayment(Payment payment) {
-        try (Connection connection = databaseManager.getConnection()) {
-            connection.setAutoCommit(false); // начало транзакции
 
-            try {
-                // 1. Блокируем строку заявки (или продажи), чтобы избежать гонки
-                String lockSql = """
-                SELECT application_id
-                FROM installment_applications
-                WHERE application_id = ?
-                FOR UPDATE
-                """;
-                try (PreparedStatement lockStmt = connection.prepareStatement(lockSql)) {
-                    lockStmt.setLong(1, payment.getApplicationId());
-                    lockStmt.executeQuery(); // блокировка
-                }
-
-                // 2. Теперь проверяем остаток (никто другой не может изменить строку)
-                // ... (ваша логика проверки)
-
-                // 3. Вставляем платёж
-                String insertSql = """
-                INSERT INTO payments (sale_id, application_id, payment_number,
-                                      payment_date, amount, payment_method, payment_purpose)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """;
-                try (PreparedStatement insertStmt = connection.prepareStatement(insertSql)) {
-                    // ... (установка параметров)
-                    insertStmt.executeUpdate();
-                }
-
-                connection.commit(); // фиксация транзакции
-            } catch (SQLException e) {
-                connection.rollback(); // откат при ошибке
-                throw new DataAccessException("Ошибка при регистрации платежа", e);
-            }
-        } catch (SQLException e) {
-            throw new DataAccessException("Ошибка подключения к БД", e);
-        }
-    }
     /**
      * Регистрирует новый платёж.
      */
+    /**
+     * Регистрирует платёж в отдельной транзакции.
+     */
     @Override
     public Long create(Payment payment) {
+        return databaseManager.executeInTransaction(
+                connection -> create(connection, payment)
+        );
+    }
+
+    /**
+     * Регистрирует платёж в рамках существующей транзакции.
+     *
+     * Все проверки и INSERT выполняются на одном соединении.
+     *
+     * @param connection соединение с базой данных
+     * @param payment данные платежа
+     * @return идентификатор созданного платежа
+     */
+    @Override
+    public Long create(Connection connection, Payment payment) {
+
+        if (connection == null) {
+            throw new IllegalArgumentException(
+                    "Соединение с базой данных не должно быть null"
+            );
+        }
+
         if (payment == null) {
             throw new ValidationException(
                     "Данные платежа не должны быть null"
@@ -186,62 +172,109 @@ public class PaymentDaoImpl implements PaymentDao {
         Long saleId = payment.getSale().getSaleId();
         validateId(saleId, "продажи");
 
-        // Проверяем существование продажи.
-        Sale sale = saleDao.findById(saleId)
-                .orElseThrow(() -> new ValidationException(
-                        "Продажа с идентификатором "
-                                + saleId + " не найдена"
-                ));
-
         Long applicationId = null;
         Integer paymentNumber = null;
 
+        String saleSql = """
+                SELECT payment_type
+                FROM sales
+                WHERE sale_id = ?
+                """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(saleSql)) {
+
+            statement.setLong(1, saleId);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+
+                if (!resultSet.next()) {
+                    throw new ValidationException(
+                            "Продажа с идентификатором "
+                                    + saleId + " не найдена"
+                    );
+                }
+
+                String paymentType =
+                        resultSet.getString("payment_type");
+
+                if (payment.getPaymentPurpose()
+                        == PaymentPurpose.INSTALLMENT_PAYMENT
+                        && !"INSTALLMENT".equals(paymentType)) {
+
+                    throw new BusinessRuleException(
+                            "Платёж по графику рассрочки возможен "
+                                    + "только для продажи с типом INSTALLMENT"
+                    );
+                }
+            }
+        } catch (SQLException exception) {
+            throw new DataAccessException(
+                    "Не удалось проверить продажу перед регистрацией платежа",
+                    exception
+            );
+        }
+
         if (payment.getApplication() != null) {
+
             applicationId =
                     payment.getApplication().getApplicationId();
 
             validateId(applicationId, "заявки на рассрочку");
 
-            Long currentApplicationId = applicationId;
+            paymentNumber = payment.getPaymentNumber();
 
-            InstallmentApplication application =
-                    applicationDao.findById(currentApplicationId)
-                            .orElseThrow(() ->
-                                    new ValidationException(
-                                            "Заявка с идентификатором "
-                                                    + currentApplicationId
-                                                    + " не найдена"
-                                    )
-                            );
-            if (!Objects.equals(
-                    application.getSale().getSaleId(),
-                    saleId)) {
-                throw new BusinessRuleException(
-                        "Заявка на рассрочку относится к другой продаже"
+            String applicationSql = """
+                    SELECT sale_id
+                    FROM installment_applications
+                    WHERE application_id = ?
+                    """;
+
+            try (PreparedStatement statement =
+                         connection.prepareStatement(applicationSql)) {
+
+                statement.setLong(1, applicationId);
+
+                try (ResultSet resultSet = statement.executeQuery()) {
+
+                    if (!resultSet.next()) {
+                        throw new ValidationException(
+                                "Заявка с идентификатором "
+                                        + applicationId + " не найдена"
+                        );
+                    }
+
+                    Long applicationSaleId =
+                            resultSet.getLong("sale_id");
+
+                    if (!Objects.equals(applicationSaleId, saleId)) {
+                        throw new BusinessRuleException(
+                                "Заявка на рассрочку относится "
+                                        + "к другой продаже"
+                        );
+                    }
+                }
+
+            } catch (SQLException exception) {
+                throw new DataAccessException(
+                        "Не удалось проверить заявку на рассрочку",
+                        exception
                 );
             }
 
-            paymentNumber = payment.getPaymentNumber();
+            if (payment.getPaymentPurpose()
+                    == PaymentPurpose.INSTALLMENT_PAYMENT) {
 
-            validateScheduleItem(applicationId, paymentNumber);
+                validateScheduleItem(
+                        connection,
+                        applicationId,
+                        paymentNumber
+                );
+            }
         }
 
-        // Проверяем соответствие назначения платежа типу продажи.
-        if (payment.getPaymentPurpose()
-                == PaymentPurpose.INSTALLMENT_PAYMENT
-                && sale.getPaymentType()
-                != by.bsuir.computersales.common.model.PaymentType.INSTALLMENT) {
-            throw new BusinessRuleException(
-                    "Платёж по графику рассрочки возможен "
-                            + "только для продажи с типом INSTALLMENT"
-            );
-        }
-
-        String sql = INSERT_PAYMENT_SQL;
-
-        try (Connection connection = databaseManager.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+        try (PreparedStatement statement =
+                     connection.prepareStatement(INSERT_PAYMENT_SQL)) {
 
             statement.setLong(1, saleId);
 
@@ -264,6 +297,7 @@ public class PaymentDaoImpl implements PaymentDao {
             statement.setString(8, payment.getReferenceNumber());
 
             try (ResultSet resultSet = statement.executeQuery()) {
+
                 if (resultSet.next()) {
                     return resultSet.getLong("payment_id");
                 }
@@ -277,6 +311,7 @@ public class PaymentDaoImpl implements PaymentDao {
             }
 
         } catch (SQLException exception) {
+
             if ("23503".equals(exception.getSQLState())) {
                 throw new BusinessRuleException(
                         "Нарушена связь платежа с продажей, "
@@ -300,8 +335,11 @@ public class PaymentDaoImpl implements PaymentDao {
 
     /**
      * Проверяет наличие номера платежа в графике рассрочки.
+     *
+     * Использует соединение текущей транзакции.
      */
     private void validateScheduleItem(
+            Connection connection,
             Long applicationId,
             Integer paymentNumber) {
 
@@ -312,14 +350,14 @@ public class PaymentDaoImpl implements PaymentDao {
                   AND payment_number = ?
                 """;
 
-        try (Connection connection = databaseManager.getConnection();
-             PreparedStatement statement =
+        try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
 
             statement.setLong(1, applicationId);
             statement.setInt(2, paymentNumber);
 
             try (ResultSet resultSet = statement.executeQuery()) {
+
                 if (!resultSet.next()) {
                     throw new BusinessRuleException(
                             "Указанный номер платежа отсутствует "

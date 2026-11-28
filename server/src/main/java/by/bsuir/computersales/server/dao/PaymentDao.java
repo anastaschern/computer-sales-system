@@ -5,7 +5,7 @@ import by.bsuir.computersales.common.model.Payment;
 
 import java.util.List;
 import java.util.Optional;
-
+import java.sql.Connection;
 /**
  * Интерфейс доступа к данным о платежах.
  */
@@ -49,4 +49,14 @@ public interface PaymentDao {
      * @return идентификатор созданного платежа
      */
     Long create(Payment payment);
+    /**
+     * Регистрирует платёж в рамках существующей транзакции.
+     *
+     * @param connection соединение с базой данных
+     * @param payment данные платежа
+     * @return идентификатор созданного платежа
+     */
+    default Long create(Connection connection, Payment payment) {
+        return create(payment);
+    }
 }

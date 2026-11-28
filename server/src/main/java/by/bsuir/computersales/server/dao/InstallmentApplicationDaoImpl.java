@@ -519,4 +519,55 @@ public class InstallmentApplicationDaoImpl
             );
         }
     }
+    /**
+     * Блокирует строку заявки на рассрочку
+     * до завершения текущей транзакции.
+     *
+     * Используется для предотвращения параллельной
+     * регистрации первоначальных взносов и платежей по графику.
+     *
+     * @param connection соединение текущей транзакции
+     * @param applicationId идентификатор заявки
+     */
+    @Override
+    public void lockById(Connection connection, Long applicationId) {
+
+        if (connection == null) {
+            throw new IllegalArgumentException(
+                    "Соединение с базой данных не должно быть null"
+            );
+        }
+
+        validateId(applicationId, "заявки на рассрочку");
+
+        String sql = """
+            SELECT application_id
+            FROM installment_applications
+            WHERE application_id = ?
+            FOR UPDATE
+            """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setLong(1, applicationId);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+
+                if (!resultSet.next()) {
+                    throw new ValidationException(
+                            "Заявка на рассрочку с идентификатором "
+                                    + applicationId + " не найдена"
+                    );
+                }
+            }
+
+        } catch (SQLException exception) {
+            throw new DataAccessException(
+                    "Не удалось заблокировать заявку на рассрочку "
+                            + applicationId,
+                    exception
+            );
+        }
+    }
 }

@@ -80,4 +80,16 @@ public interface InstallmentApplicationDao {
     ) {
         update(application);
     }
+    /**
+     * Блокирует строку заявки на рассрочку
+     * до завершения текущей транзакции.
+     *
+     * @param connection соединение текущей транзакции
+     * @param applicationId идентификатор заявки
+     */
+    default void lockById(Connection connection, Long applicationId) {
+        throw new UnsupportedOperationException(
+                "Блокировка заявки не реализована"
+        );
+    }
 }

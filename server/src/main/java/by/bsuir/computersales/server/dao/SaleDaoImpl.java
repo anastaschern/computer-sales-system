@@ -557,4 +557,114 @@ public class SaleDaoImpl implements SaleDao {
             );
         }
     }
+    /**
+     * Блокирует строку продажи до завершения транзакции.
+     *
+     * Используется для предотвращения параллельной регистрации
+     * платежей по одной продаже.
+     *
+     * @param connection соединение текущей транзакции
+     * @param saleId идентификатор продажи
+     */
+    @Override
+    public void lockById(Connection connection, Long saleId) {
+
+        if (connection == null) {
+            throw new IllegalArgumentException(
+                    "Соединение с базой данных не должно быть null"
+            );
+        }
+
+        validateId(saleId, "продажи");
+
+        String sql = """
+            SELECT sale_id
+            FROM sales
+            WHERE sale_id = ?
+            FOR UPDATE
+            """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setLong(1, saleId);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+
+                if (!resultSet.next()) {
+                    throw new ValidationException(
+                            "Продажа с идентификатором "
+                                    + saleId + " не найдена"
+                    );
+                }
+            }
+
+        } catch (SQLException exception) {
+            throw new DataAccessException(
+                    "Не удалось заблокировать продажу "
+                            + saleId,
+                    exception
+            );
+        }
+    }
+    /**
+     * Изменяет статус продажи в рамках существующей транзакции.
+     *
+     * Используется при регистрации платежей, чтобы изменение
+     * статуса продажи выполнялось атомарно с сохранением платежа.
+     *
+     * @param connection соединение текущей транзакции
+     * @param saleId идентификатор продажи
+     * @param status новый статус продажи
+     */
+    @Override
+    public void updateStatus(
+            Connection connection,
+            Long saleId,
+            SaleStatus status
+    ) {
+
+        if (connection == null) {
+            throw new IllegalArgumentException(
+                    "Соединение с базой данных не должно быть null"
+            );
+        }
+
+        validateId(saleId, "продажи");
+
+        if (status == null) {
+            throw new IllegalArgumentException(
+                    "Статус продажи не должен быть null"
+            );
+        }
+
+        String sql = """
+            UPDATE sales
+            SET status = ?
+            WHERE sale_id = ?
+            """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setString(1, status.name());
+            statement.setLong(2, saleId);
+
+            int rowsUpdated = statement.executeUpdate();
+
+            if (rowsUpdated == 0) {
+                throw new ValidationException(
+                        "Продажа с идентификатором "
+                                + saleId + " не найдена"
+                );
+            }
+
+        } catch (SQLException exception) {
+            throw new DataAccessException(
+                    "Не удалось изменить статус продажи "
+                            + saleId,
+                    exception
+            );
+        }
+    }
 }

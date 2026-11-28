@@ -1,0 +1,1430 @@
+
+====================================================================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\dto\CreateSaleData.java
+====================================================================================================
+
+package by.bsuir.computersales.common.dto;
+
+import by.bsuir.computersales.common.model.PaymentType;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Данные для оформления новой продажи.
+ */
+public record CreateSaleData(
+        Long customerId,
+        PaymentType paymentType,
+        List<SaleItemData> items
+) implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    public CreateSaleData {
+        if (customerId == null || customerId <= 0) {
+            throw new IllegalArgumentException(
+                    "Идентификатор покупателя должен быть положительным"
+            );
+        }
+
+        if (paymentType == null) {
+            throw new IllegalArgumentException(
+                    "Тип оплаты не может быть null"
+            );
+        }
+
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Продажа должна содержать хотя бы один товар"
+            );
+        }
+
+        if (items.stream().anyMatch(item -> item == null)) {
+            throw new IllegalArgumentException(
+                    "Список товаров не должен содержать null"
+            );
+        }
+
+        items = new ArrayList<>(items);
+    }
+
+    /**
+     * Возвращает неизменяемую копию списка товаров.
+     */
+    @Override
+    public List<SaleItemData> items() {
+        return List.copyOf(items);
+    }
+}
+
+
+====================================================================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\dto\LoginResult.java
+====================================================================================================
+
+package by.bsuir.computersales.common.dto;
+
+import by.bsuir.computersales.common.model.User;
+
+import java.io.Serializable;
+
+/**
+ * Результат успешной авторизации.
+ *
+ * Содержит токен пользовательской сессии
+ * и данные авторизованного пользователя.
+ */
+public record LoginResult(
+        String sessionToken,
+        User user
+) implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    public LoginResult {
+        if (sessionToken == null || sessionToken.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Токен сессии не может быть пустым"
+            );
+        }
+
+        if (user == null) {
+            throw new IllegalArgumentException(
+                    "Данные пользователя не могут быть null"
+            );
+        }
+    }
+
+    /**
+     * Возвращает строковое представление без раскрытия токена.
+     */
+    @Override
+    public String toString() {
+        return "LoginResult[sessionToken=***, user=" + user + "]";
+    }
+}
+
+
+====================================================================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\model\InstallmentApplication.java
+====================================================================================================
+
+package by.bsuir.computersales.common.model;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+/**
+ * Модель заявки на оформление рассрочки.
+ */
+public class InstallmentApplication implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private Long applicationId;
+    private Sale sale;
+    private User reviewer;
+    private LocalDateTime applicationDate;
+    private LocalDateTime decisionDate;
+    private int termMonths;
+    private BigDecimal downPaymentAmount;
+    private BigDecimal interestRate;
+    private InstallmentApplicationStatus status;
+    private String decisionReason;
+
+    public InstallmentApplication() {
+        this.applicationDate = LocalDateTime.now();
+        this.downPaymentAmount = BigDecimal.ZERO;
+        this.interestRate = BigDecimal.ZERO;
+        this.status = InstallmentApplicationStatus.CREATED;
+    }
+
+    public InstallmentApplication(
+            Long applicationId,
+            Sale sale,
+            User reviewer,
+            LocalDateTime applicationDate,
+            LocalDateTime decisionDate,
+            int termMonths,
+            BigDecimal downPaymentAmount,
+            BigDecimal interestRate,
+            InstallmentApplicationStatus status,
+            String decisionReason) {
+
+        setApplicationId(applicationId);
+        setSale(sale);
+        setReviewer(reviewer);
+        setApplicationDate(applicationDate);
+        setDecisionDate(decisionDate);
+        setTermMonths(termMonths);
+        setDownPaymentAmount(downPaymentAmount);
+        setInterestRate(interestRate);
+        setStatus(status);
+        setDecisionReason(decisionReason);
+    }
+
+    public Long getApplicationId() {
+        return applicationId;
+    }
+
+    public void setApplicationId(Long applicationId) {
+        if (applicationId != null && applicationId <= 0) {
+            throw new IllegalArgumentException(
+                    "Идентификатор заявки должен быть положительным"
+            );
+        }
+        this.applicationId = applicationId;
+    }
+
+    public Sale getSale() {
+        return sale;
+    }
+
+    public void setSale(Sale sale) {
+        this.sale = Objects.requireNonNull(
+                sale, "Продажа не должна быть null"
+        );
+    }
+
+    public User getReviewer() {
+        return reviewer;
+    }
+
+    public void setReviewer(User reviewer) {
+        this.reviewer = reviewer;
+    }
+
+    public LocalDateTime getApplicationDate() {
+        return applicationDate;
+    }
+
+    public void setApplicationDate(LocalDateTime applicationDate) {
+        this.applicationDate = Objects.requireNonNull(
+                applicationDate, "Дата заявки не должна быть null"
+        );
+
+        if (decisionDate != null && decisionDate.isBefore(applicationDate)) {
+            throw new IllegalArgumentException(
+                    "Дата решения не может быть раньше даты заявки"
+            );
+        }
+    }
+
+    public LocalDateTime getDecisionDate() {
+        return decisionDate;
+    }
+
+    public void setDecisionDate(LocalDateTime decisionDate) {
+        if (decisionDate != null
+                && applicationDate != null
+                && decisionDate.isBefore(applicationDate)) {
+            throw new IllegalArgumentException(
+                    "Дата решения не может быть раньше даты заявки"
+            );
+        }
+        this.decisionDate = decisionDate;
+    }
+
+    public int getTermMonths() {
+        return termMonths;
+    }
+
+    public void setTermMonths(int termMonths) {
+        if (termMonths <= 0) {
+            throw new IllegalArgumentException(
+                    "Срок рассрочки должен быть больше нуля"
+            );
+        }
+        this.termMonths = termMonths;
+    }
+
+    public BigDecimal getDownPaymentAmount() {
+        return downPaymentAmount;
+    }
+
+    public void setDownPaymentAmount(BigDecimal downPaymentAmount) {
+        if (downPaymentAmount == null || downPaymentAmount.signum() < 0) {
+            throw new IllegalArgumentException(
+                    "Первоначальный взнос не может быть null или отрицательным"
+            );
+        }
+        this.downPaymentAmount = downPaymentAmount;
+    }
+
+    public BigDecimal getInterestRate() {
+        return interestRate;
+    }
+
+    public void setInterestRate(BigDecimal interestRate) {
+        if (interestRate == null || interestRate.signum() < 0) {
+            throw new IllegalArgumentException(
+                    "Процентная ставка не может быть null или отрицательной"
+            );
+        }
+        this.interestRate = interestRate;
+    }
+
+    public InstallmentApplicationStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(InstallmentApplicationStatus status) {
+        this.status = Objects.requireNonNull(
+                status, "Статус заявки не должен быть null"
+        );
+    }
+
+    public String getDecisionReason() {
+        return decisionReason;
+    }
+
+    public void setDecisionReason(String decisionReason) {
+        if ((status == InstallmentApplicationStatus.REJECTED
+                || status == InstallmentApplicationStatus.RETURNED)
+                && (decisionReason == null || decisionReason.isBlank())) {
+            throw new IllegalArgumentException(
+                    "Для отклонённой или возвращённой заявки необходимо указать причину"
+            );
+        }
+        this.decisionReason = decisionReason;
+    }
+}
+
+
+====================================================================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\model\Payment.java
+====================================================================================================
+
+package by.bsuir.computersales.common.model;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+/**
+ * Модель фактически внесённого платежа.
+ */
+public class Payment implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private String referenceNumber;
+    private Long paymentId;
+    private Sale sale;
+    private InstallmentApplication application;
+    private Integer paymentNumber;
+    private LocalDateTime paymentDate;
+    private BigDecimal amount;
+    private PaymentMethod paymentMethod;
+    private PaymentPurpose paymentPurpose;
+
+    public Payment() {
+        this.paymentDate = LocalDateTime.now();
+    }
+
+    public Payment(
+            Long paymentId,
+            Sale sale,
+            InstallmentApplication application,
+            Integer paymentNumber,
+            LocalDateTime paymentDate,
+            BigDecimal amount,
+            PaymentMethod paymentMethod,
+            PaymentPurpose paymentPurpose,
+            String referenceNumber) {
+
+        this(
+                paymentId,
+                sale,
+                application,
+                paymentNumber,
+                paymentDate,
+                amount,
+                paymentMethod,
+                paymentPurpose
+        );
+
+        this.referenceNumber = referenceNumber;
+    }
+    public String getReferenceNumber() {
+        return referenceNumber;
+    }
+
+    public void setReferenceNumber(String referenceNumber) {
+        this.referenceNumber = referenceNumber;
+    }
+    public Payment(
+            Long paymentId,
+            Sale sale,
+            InstallmentApplication application,
+            Integer paymentNumber,
+            LocalDateTime paymentDate,
+            BigDecimal amount,
+            PaymentMethod paymentMethod,
+            PaymentPurpose paymentPurpose) {
+
+        setPaymentId(paymentId);
+        setSale(sale);
+        setApplication(application);
+        setPaymentNumber(paymentNumber);
+        setPaymentDate(paymentDate);
+        setAmount(amount);
+        setPaymentMethod(paymentMethod);
+        setPaymentPurpose(paymentPurpose);
+    }
+
+    public Long getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(Long paymentId) {
+        if (paymentId != null && paymentId <= 0) {
+            throw new IllegalArgumentException(
+                    "Идентификатор платежа должен быть положительным"
+            );
+        }
+        this.paymentId = paymentId;
+    }
+
+    public Sale getSale() {
+        return sale;
+    }
+
+    public void setSale(Sale sale) {
+        this.sale = Objects.requireNonNull(
+                sale,
+                "Продажа не должна быть null"
+        );
+    }
+
+    public InstallmentApplication getApplication() {
+        return application;
+    }
+
+    public void setApplication(InstallmentApplication application) {
+        this.application = application;
+    }
+
+    public Integer getPaymentNumber() {
+        return paymentNumber;
+    }
+
+    public void setPaymentNumber(Integer paymentNumber) {
+        if (paymentNumber != null && paymentNumber <= 0) {
+            throw new IllegalArgumentException(
+                    "Номер платежа должен быть положительным"
+            );
+        }
+        this.paymentNumber = paymentNumber;
+    }
+
+    public LocalDateTime getPaymentDate() {
+        return paymentDate;
+    }
+
+    public void setPaymentDate(LocalDateTime paymentDate) {
+        this.paymentDate = Objects.requireNonNull(
+                paymentDate,
+                "Дата платежа не должна быть null"
+        );
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        if (amount == null || amount.signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "Сумма платежа должна быть больше нуля"
+            );
+        }
+        this.amount = amount;
+    }
+
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(PaymentMethod paymentMethod) {
+        this.paymentMethod = Objects.requireNonNull(
+                paymentMethod,
+                "Способ оплаты не должен быть null"
+        );
+    }
+
+    public PaymentPurpose getPaymentPurpose() {
+        return paymentPurpose;
+    }
+
+    public void setPaymentPurpose(PaymentPurpose paymentPurpose) {
+        this.paymentPurpose = Objects.requireNonNull(
+                paymentPurpose,
+                "Назначение платежа не должно быть null"
+        );
+    }
+
+    /**
+     * Проверяет согласованность назначения платежа
+     * и наличия ссылки на заявку и номер платежа.
+     */
+    public void validatePaymentReferences() {
+        boolean hasApplication = application != null;
+        boolean hasPaymentNumber = paymentNumber != null;
+
+        if (hasApplication != hasPaymentNumber) {
+            throw new IllegalArgumentException(
+                    "Заявка и номер платежа должны быть указаны одновременно"
+            );
+        }
+
+        boolean installmentPayment =
+                paymentPurpose == PaymentPurpose.INSTALLMENT_PAYMENT;
+
+        if (installmentPayment != hasApplication) {
+            throw new IllegalArgumentException(
+                    "Для платежа по рассрочке необходимо указать заявку "
+                            + "и номер платежа; для остальных назначений "
+                            + "эти поля должны отсутствовать"
+            );
+        }
+
+        if (application != null
+                && application.getSale() != null
+                && sale != null
+                && !Objects.equals(
+                application.getSale().getSaleId(),
+                sale.getSaleId())) {
+            throw new IllegalArgumentException(
+                    "Заявка должна относиться к той же продаже, что и платёж"
+            );
+        }
+    }
+}
+
+
+====================================================================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\model\PaymentScheduleItem.java
+====================================================================================================
+
+package by.bsuir.computersales.common.model;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Objects;
+
+/**
+ * Отдельный плановый платёж в графике погашения рассрочки.
+ */
+public class PaymentScheduleItem implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private InstallmentApplication application;
+    private int paymentNumber;
+    private LocalDate dueDate;
+    private BigDecimal plannedAmount;
+
+    public PaymentScheduleItem() {
+    }
+
+    public PaymentScheduleItem(
+            InstallmentApplication application,
+            int paymentNumber,
+            LocalDate dueDate,
+            BigDecimal plannedAmount) {
+
+        setApplication(application);
+        setPaymentNumber(paymentNumber);
+        setDueDate(dueDate);
+        setPlannedAmount(plannedAmount);
+    }
+
+    public InstallmentApplication getApplication() {
+        return application;
+    }
+
+    public void setApplication(InstallmentApplication application) {
+        this.application = Objects.requireNonNull(
+                application,
+                "Заявка на рассрочку не должна быть null"
+        );
+    }
+
+    public int getPaymentNumber() {
+        return paymentNumber;
+    }
+
+    public void setPaymentNumber(int paymentNumber) {
+        if (paymentNumber <= 0) {
+            throw new IllegalArgumentException(
+                    "Номер платежа должен быть положительным"
+            );
+        }
+        this.paymentNumber = paymentNumber;
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(LocalDate dueDate) {
+        this.dueDate = Objects.requireNonNull(
+                dueDate,
+                "Дата платежа не должна быть null"
+        );
+    }
+
+    public BigDecimal getPlannedAmount() {
+        return plannedAmount;
+    }
+
+    public void setPlannedAmount(BigDecimal plannedAmount) {
+        if (plannedAmount == null || plannedAmount.signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "Плановая сумма платежа должна быть больше нуля"
+            );
+        }
+        this.plannedAmount = plannedAmount;
+    }
+}
+
+
+====================================================================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\model\Role.java
+====================================================================================================
+
+package by.bsuir.computersales.common.model;
+
+import java.io.Serializable;
+import java.util.Objects;
+
+/**
+ * Модель роли пользователя системы.
+ *
+ * Тип роли определяется перечислением RoleType.
+ */
+public class Role implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private Long roleId;
+    private RoleType roleType;
+    private String description;
+
+    public Role() {
+    }
+
+    public Role(
+            Long roleId,
+            RoleType roleType,
+            String description
+    ) {
+        this.roleId = roleId;
+        setRoleType(roleType);
+        this.description = description;
+    }
+
+    public Long getRoleId() {
+        return roleId;
+    }
+
+    public void setRoleId(Long roleId) {
+        this.roleId = roleId;
+    }
+
+    public RoleType getRoleType() {
+        return roleType;
+    }
+
+    public void setRoleType(RoleType roleType) {
+        if (roleType == null) {
+            throw new IllegalArgumentException(
+                    "Тип роли не может быть null"
+            );
+        }
+
+        this.roleType = roleType;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    /**
+     * Возвращает описание роли для отображения.
+     */
+    @Override
+    public String toString() {
+        return description;
+    }
+
+    /**
+     * Сравнивает роли по идентификатору.
+     */
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+
+        if (object == null || getClass() != object.getClass()) {
+            return false;
+        }
+
+        Role role = (Role) object;
+
+        return roleId != null && roleId.equals(role.roleId);
+    }
+
+    /**
+     * Возвращает хеш-код роли на основе идентификатора.
+     */
+    @Override
+    public int hashCode() {
+        return Objects.hash(roleId);
+    }
+}
+
+
+
+====================================================================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\model\Sale.java
+====================================================================================================
+
+package by.bsuir.computersales.common.model;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * Модель продажи компьютерной техники.
+ */
+public class Sale implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private Long saleId;
+    private Customer customer;
+    private User user;
+    private LocalDateTime saleDate;
+    private SaleStatus status;
+    private PaymentType paymentType;
+    private List<SaleItem> items;
+
+    public Sale() {
+        this.items = new ArrayList<>();
+    }
+
+    public Sale(
+            Long saleId,
+            Customer customer,
+            User user,
+            LocalDateTime saleDate,
+            SaleStatus status,
+            PaymentType paymentType,
+            List<SaleItem> items) {
+
+        this();
+
+        this.saleId = saleId;
+        setCustomer(customer);
+        setUser(user);
+        setSaleDate(saleDate);
+        setStatus(status);
+        setPaymentType(paymentType);
+        setItems(items);
+    }
+
+    public Long getSaleId() {
+        return saleId;
+    }
+
+    public void setSaleId(Long saleId) {
+        if (saleId != null && saleId <= 0) {
+            throw new IllegalArgumentException(
+                    "Идентификатор продажи должен быть положительным"
+            );
+        }
+
+        this.saleId = saleId;
+    }
+
+    public Customer getCustomer() {
+        return customer;
+    }
+
+    public void setCustomer(Customer customer) {
+        this.customer = Objects.requireNonNull(
+                customer,
+                "Покупатель не должен быть null"
+        );
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = Objects.requireNonNull(
+                user,
+                "Сотрудник не должен быть null"
+        );
+    }
+
+    public LocalDateTime getSaleDate() {
+        return saleDate;
+    }
+
+    public void setSaleDate(LocalDateTime saleDate) {
+        this.saleDate = Objects.requireNonNull(
+                saleDate,
+                "Дата продажи не должна быть null"
+        );
+    }
+
+    public SaleStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(SaleStatus status) {
+        this.status = Objects.requireNonNull(
+                status,
+                "Статус продажи не должен быть null"
+        );
+    }
+
+    public PaymentType getPaymentType() {
+        return paymentType;
+    }
+
+    public void setPaymentType(PaymentType paymentType) {
+        this.paymentType = Objects.requireNonNull(
+                paymentType,
+                "Тип оплаты не должен быть null"
+        );
+    }
+
+    public List<SaleItem> getItems() {
+        return items;
+    }
+
+    public void setItems(List<SaleItem> items) {
+        Objects.requireNonNull(
+                items,
+                "Список товаров не должен быть null"
+        );
+
+        if (items.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException(
+                    "Список не должен содержать null"
+            );
+        }
+
+        this.items = new ArrayList<>(items);
+    }
+
+    /**
+     * Возвращает общую стоимость продажи.
+     */
+    public java.math.BigDecimal getTotalAmount() {
+        return items.stream()
+                .map(SaleItem::getTotalPrice)
+                .reduce(
+                        java.math.BigDecimal.ZERO,
+                        java.math.BigDecimal::add
+                );
+    }
+}
+
+
+====================================================================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\model\User.java
+====================================================================================================
+
+package by.bsuir.computersales.common.model;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+/**
+ * Модель пользователя системы.
+ *
+ * Хеш пароля в эту модель не включается.
+ */
+public class User implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private Long userId;
+    private String login;
+    private Role role;
+    private boolean active;
+    private LocalDateTime createdAt;
+
+    public User() {
+    }
+
+    public User(
+            Long userId,
+            String login,
+            Role role,
+            boolean active,
+            LocalDateTime createdAt
+    ) {
+        this.userId = userId;
+        this.login = login;
+        this.role = role;
+        this.active = active;
+        this.createdAt = createdAt;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public String getLogin() {
+        return login;
+    }
+
+    public void setLogin(String login) {
+        this.login = login;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+    /**
+     * Возвращает строковое представление пользователя.
+     */
+    @Override
+    public String toString() {
+        return "User["
+                + "userId=" + userId
+                + ", login='" + login + '\''
+                + ", role=" + role
+                + ", active=" + active
+                + ", createdAt=" + createdAt
+                + ']';
+    }
+    /**
+     * Сравнивает пользователей по идентификатору.
+     */
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+
+        if (object == null || getClass() != object.getClass()) {
+            return false;
+        }
+
+        User user = (User) object;
+
+        return userId != null && userId.equals(user.userId);
+    }
+
+    /**
+     * Возвращает хеш-код пользователя на основе идентификатора.
+     */
+    @Override
+    public int hashCode() {
+        return Objects.hash(userId);
+    }
+}
+
+
+====================================================================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\dao\UserDao.java
+====================================================================================================
+
+package by.bsuir.computersales.server.dao;
+
+import by.bsuir.computersales.common.model.User;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Интерфейс доступа к данным о пользователях системы.
+ */
+public interface UserDao {
+
+    /**
+     * Получает список всех пользователей.
+     *
+     * @return список пользователей
+     */
+    List<User> findAll();
+
+    /**
+     * Находит пользователя по идентификатору.
+     *
+     * @param userId идентификатор пользователя
+     * @return найденный пользователь или пустой Optional
+     */
+    Optional<User> findById(Long userId);
+
+    /**
+     * Находит пользователя по логину.
+     *
+     * @param login логин пользователя
+     * @return найденный пользователь или пустой Optional
+     */
+    Optional<User> findByLogin(String login);
+
+    /**
+     * Находит пользователя и хеш его пароля по логину.
+     *
+     * Метод предназначен для серверной авторизации.
+     * Хеш пароля не включается в модель User.
+     *
+     * @param login логин пользователя
+     * @return учётные данные или пустой Optional
+     */
+    Optional<UserCredentials> findCredentialsByLogin(String login);
+}
+
+
+====================================================================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\dao\UserDaoImpl.java
+====================================================================================================
+
+package by.bsuir.computersales.server.dao;
+
+import by.bsuir.computersales.common.model.Role;
+import by.bsuir.computersales.common.model.RoleType;
+import by.bsuir.computersales.common.model.User;
+import by.bsuir.computersales.server.database.DatabaseManager;
+import by.bsuir.computersales.server.exception.DataAccessException;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * JDBC-реализация доступа к данным о пользователях системы.
+ */
+public class UserDaoImpl implements UserDao {
+
+    /**
+     * SQL-запрос для получения всех пользователей вместе с их ролями.
+     */
+    private static final String FIND_ALL_SQL = """
+            SELECT u.user_id,
+                   u.login,
+                   u.is_active,
+                   u.created_at,
+                   r.role_id,
+                   r.role_name,
+                   r.description
+            FROM users u
+            JOIN roles r ON u.role_id = r.role_id
+            ORDER BY u.user_id
+            """;
+
+    /**
+     * SQL-запрос для поиска пользователя по идентификатору.
+     */
+    private static final String FIND_BY_ID_SQL = """
+            SELECT u.user_id,
+                   u.login,
+                   u.is_active,
+                   u.created_at,
+                   r.role_id,
+                   r.role_name,
+                   r.description
+            FROM users u
+            JOIN roles r ON u.role_id = r.role_id
+            WHERE u.user_id = ?
+            """;
+
+    /**
+     * SQL-запрос для поиска пользователя по логину.
+     */
+    private static final String FIND_BY_LOGIN_SQL = """
+            SELECT u.user_id,
+                   u.login,
+                   u.is_active,
+                   u.created_at,
+                   r.role_id,
+                   r.role_name,
+                   r.description
+            FROM users u
+            JOIN roles r ON u.role_id = r.role_id
+            WHERE u.login = ?
+            """;
+
+    /**
+     * SQL-запрос для получения пользователя и хеша его пароля.
+     * Используется только при авторизации.
+     */
+    private static final String FIND_CREDENTIALS_BY_LOGIN_SQL = """
+            SELECT u.user_id,
+                   u.login,
+                   u.password_hash,
+                   u.is_active,
+                   u.created_at,
+                   r.role_id,
+                   r.role_name,
+                   r.description
+            FROM users u
+            JOIN roles r ON u.role_id = r.role_id
+            WHERE u.login = ?
+            """;
+
+    private final DatabaseManager databaseManager;
+
+    /**
+     * Создаёт DAO пользователей.
+     *
+     * @param databaseManager менеджер подключений к базе данных
+     */
+    public UserDaoImpl(DatabaseManager databaseManager) {
+        this.databaseManager = Objects.requireNonNull(
+                databaseManager,
+                "Менеджер базы данных не должен быть null"
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<User> findAll() {
+        List<User> users = new ArrayList<>();
+
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(FIND_ALL_SQL);
+             ResultSet resultSet = statement.executeQuery()) {
+
+            while (resultSet.next()) {
+                users.add(mapRow(resultSet));
+            }
+
+            return users;
+
+        } catch (SQLException exception) {
+            throw new DataAccessException(
+                    "Не удалось получить список пользователей",
+                    exception
+            );
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Optional<User> findById(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException(
+                    "Идентификатор пользователя должен быть положительным"
+            );
+        }
+
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(FIND_BY_ID_SQL)) {
+
+            statement.setLong(1, userId);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return Optional.of(mapRow(resultSet));
+                }
+
+                return Optional.empty();
+            }
+
+        } catch (SQLException exception) {
+            throw new DataAccessException(
+                    "Не удалось найти пользователя по идентификатору",
+                    exception
+            );
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Optional<User> findByLogin(String login) {
+        if (login == null || login.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Логин пользователя не должен быть пустым"
+            );
+        }
+
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement statement = connection.prepareStatement(FIND_BY_LOGIN_SQL)) {
+
+            statement.setString(1, login);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return Optional.of(mapRow(resultSet));
+                }
+
+                return Optional.empty();
+            }
+
+        } catch (SQLException exception) {
+            throw new DataAccessException(
+                    "Не удалось найти пользователя по логину",
+                    exception
+            );
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Optional<UserCredentials> findCredentialsByLogin(String login) {
+        if (login == null || login.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Логин пользователя не должен быть пустым"
+            );
+        }
+
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(FIND_CREDENTIALS_BY_LOGIN_SQL)) {
+
+            statement.setString(1, login);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    User user = mapRow(resultSet);
+                    String passwordHash = resultSet.getString("password_hash");
+
+                    return Optional.of(
+                            new UserCredentials(user, passwordHash)
+                    );
+                }
+
+                return Optional.empty();
+            }
+
+        } catch (SQLException exception) {
+            throw new DataAccessException(
+                    "Не удалось получить учётные данные пользователя",
+                    exception
+            );
+        }
+    }
+
+    /**
+     * Преобразует текущую строку результата SQL-запроса в объект User.
+     *
+     * @param resultSet результат SQL-запроса
+     * @return объект пользователя
+     * @throws SQLException при ошибке чтения данных
+     */
+    private User mapRow(ResultSet resultSet) throws SQLException {
+        Role role = new Role(
+                resultSet.getLong("role_id"),
+                RoleType.valueOf(resultSet.getString("role_name")),
+                resultSet.getString("description")
+        );
+
+        return new User(
+                resultSet.getLong("user_id"),
+                resultSet.getString("login"),
+                role,
+                resultSet.getBoolean("is_active"),
+                resultSet.getTimestamp("created_at").toLocalDateTime()
+        );
+    }
+}
+
+
+====================================================================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\service\AuthService.java
+====================================================================================================
+
+package by.bsuir.computersales.server.service;
+
+import by.bsuir.computersales.common.dto.LoginResult;
+import by.bsuir.computersales.common.model.User;
+import by.bsuir.computersales.common.protocol.ErrorCode;
+import by.bsuir.computersales.server.dao.UserCredentials;
+import by.bsuir.computersales.server.dao.UserDao;
+import by.bsuir.computersales.server.exception.AuthenticationException;
+import by.bsuir.computersales.server.security.PasswordHasher;
+import by.bsuir.computersales.server.security.SessionManager;
+
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * Сервис аутентификации пользователей системы.
+ *
+ * Отвечает за проверку учётных данных,
+ * создание пользовательских сессий
+ * и завершение авторизации.
+ */
+public class AuthService {
+
+    private final UserDao userDao;
+    private final PasswordHasher passwordHasher;
+    private final SessionManager sessionManager;
+
+    /**
+     * Создаёт сервис аутентификации.
+     *
+     * @param userDao доступ к данным пользователей
+     * @param passwordHasher средство проверки паролей
+     * @param sessionManager менеджер пользовательских сессий
+     */
+    public AuthService(
+            UserDao userDao,
+            PasswordHasher passwordHasher,
+            SessionManager sessionManager
+    ) {
+        this.userDao = Objects.requireNonNull(
+                userDao,
+                "DAO пользователей не должен быть null"
+        );
+
+        this.passwordHasher = Objects.requireNonNull(
+                passwordHasher,
+                "Средство проверки паролей не должно быть null"
+        );
+
+        this.sessionManager = Objects.requireNonNull(
+                sessionManager,
+                "Менеджер сессий не должен быть null"
+        );
+    }
+
+    /**
+     * Выполняет авторизацию пользователя.
+     *
+     * Проверяет логин и пароль, убеждается,
+     * что учётная запись активна, после чего
+     * создаёт пользовательскую сессию.
+     *
+     * @param login логин пользователя
+     * @param password пароль пользователя
+     * @return результат успешной авторизации
+     * @throws AuthenticationException при неверных учётных данных
+     */
+    public LoginResult login(String login, String password) {
+        if (login == null || login.isBlank()
+                || password == null || password.isEmpty()) {
+            throw new AuthenticationException(
+                    ErrorCode.INVALID_CREDENTIALS,
+                    "Неверный логин или пароль"
+            );
+        }
+
+        Optional<UserCredentials> optionalCredentials =
+                userDao.findCredentialsByLogin(login);
+
+        if (optionalCredentials.isEmpty()) {
+            throw invalidCredentials();
+        }
+
+        UserCredentials credentials = optionalCredentials.get();
+
+        User user = credentials.user();
+
+        boolean passwordCorrect = passwordHasher.verifyPassword(
+                password,
+                credentials.passwordHash()
+        );
+
+        if (!passwordCorrect || !user.isActive()) {
+            throw invalidCredentials();
+        }
+
+        String sessionToken = sessionManager.createSession(
+                user.getUserId()
+        );
+
+        return new LoginResult(sessionToken, user);
+    }
+
+    /**
+     * Завершает пользовательскую сессию.
+     *
+     * @param sessionToken токен сессии
+     */
+    public void logout(String sessionToken) {
+        sessionManager.invalidateSession(sessionToken);
+    }
+
+    /**
+     * Получает идентификатор авторизованного пользователя.
+     *
+     * При проверке действительности токена
+     * обновляется время активности сессии.
+     *
+     * @param sessionToken токен сессии
+     * @return идентификатор пользователя
+     */
+    public Long getAuthenticatedUserId(String sessionToken) {
+        return sessionManager.getUserId(sessionToken);
+    }
+
+    /**
+     * Создаёт единообразную ошибку авторизации.
+     *
+     * Не раскрывает, существует ли пользователь
+     * и правильно ли введён пароль.
+     *
+     * @return исключение с общим сообщением
+     */
+    private AuthenticationException invalidCredentials() {
+        return new AuthenticationException(
+                ErrorCode.INVALID_CREDENTIALS,
+                "Неверный логин или пароль"
+        );
+    }
+}
+

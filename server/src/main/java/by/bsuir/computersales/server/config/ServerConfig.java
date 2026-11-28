@@ -302,4 +302,5 @@ public class ServerConfig {
                 + ", maxActiveInstallments=" + maxActiveInstallments
                 + ']';
     }
+
 }

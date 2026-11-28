@@ -3,9 +3,11 @@ package by.bsuir.computersales.server.dao;
 
 import by.bsuir.computersales.common.dto.CreateSaleData;
 import by.bsuir.computersales.common.model.Sale;
+import by.bsuir.computersales.common.model.SaleStatus;
 
 import java.util.List;
 import java.util.Optional;
+import java.sql.Connection;
 
 /**
  * Интерфейс доступа к данным о продажах.
@@ -55,4 +57,31 @@ public interface SaleDao {
      * @return идентификатор созданной продажи
      */
     Long createSale(Long userId, CreateSaleData saleData);
+    /**
+     * Блокирует строку продажи до завершения текущей транзакции.
+     *
+     * @param connection соединение текущей транзакции
+     * @param saleId идентификатор продажи
+     */
+    default void lockById(Connection connection, Long saleId) {
+        throw new UnsupportedOperationException(
+                "Блокировка продажи не реализована"
+        );
+    }
+    /**
+     * Изменяет статус продажи в рамках существующей транзакции.
+     *
+     * @param connection соединение текущей транзакции
+     * @param saleId идентификатор продажи
+     * @param status новый статус продажи
+     */
+    default void updateStatus(
+            Connection connection,
+            Long saleId,
+            SaleStatus status
+    ) {
+        throw new UnsupportedOperationException(
+                "Обновление статуса продажи не реализовано"
+        );
+    }
 }

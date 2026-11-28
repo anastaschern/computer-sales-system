@@ -1,0 +1,2453 @@
+
+============================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\dao\PaymentDao.java
+============================================================
+
+package by.bsuir.computersales.server.dao;
+
+import by.bsuir.computersales.common.model.Payment;
+
+import java.util.List;
+import java.util.Optional;
+import java.sql.Connection;
+/**
+ * Интерфейс доступа к данным о платежах.
+ */
+public interface PaymentDao {
+
+    /**
+     * Возвращает список всех платежей.
+     *
+     * @return список платежей
+     */
+    List<Payment> findAll();
+
+    /**
+     * Находит платёж по идентификатору.
+     *
+     * @param paymentId идентификатор платежа
+     * @return найденный платёж или пустой Optional
+     */
+    Optional<Payment> findById(Long paymentId);
+
+    /**
+     * Возвращает платежи указанной продажи.
+     *
+     * @param saleId идентификатор продажи
+     * @return список платежей
+     */
+    List<Payment> findBySaleId(Long saleId);
+
+    /**
+     * Возвращает платежи по заявке на рассрочку.
+     *
+     * @param applicationId идентификатор заявки
+     * @return список платежей
+     */
+    List<Payment> findByApplicationId(Long applicationId);
+
+    /**
+     * Регистрирует новый платёж.
+     *
+     * @param payment данные платежа
+     * @return идентификатор созданного платежа
+     */
+    Long create(Payment payment);
+    /**
+     * Регистрирует платёж в рамках существующей транзакции.
+     *
+     * @param connection соединение с базой данных
+     * @param payment данные платежа
+     * @return идентификатор созданного платежа
+     */
+    default Long create(Connection connection, Payment payment) {
+        return create(payment);
+    }
+}
+
+
+============================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\dao\PaymentScheduleDao.java
+============================================================
+
+package by.bsuir.computersales.server.dao;
+
+import by.bsuir.computersales.common.model.PaymentScheduleItem;
+
+import java.sql.Connection;
+import java.util.List;
+
+/**
+ * Интерфейс доступа к данным графика платежей.
+ */
+public interface PaymentScheduleDao {
+
+    /**
+     * Возвращает график платежей указанной заявки.
+     *
+     * @param applicationId идентификатор заявки
+     * @return список платежей графика
+     */
+    List<PaymentScheduleItem> findByApplicationId(Long applicationId);
+
+    /**
+     * Добавляет запись в график платежей.
+     *
+     * @param item запись графика
+     */
+    void create(PaymentScheduleItem item);
+
+    /**
+     * Добавляет несколько записей графика в рамках одной операции.
+     *
+     * @param items список записей графика
+     */
+    void createAll(List<PaymentScheduleItem> items);
+
+    /**
+     * Удаляет график платежей указанной заявки.
+     *
+     * @param applicationId идентификатор заявки
+     */
+    void deleteByApplicationId(Long applicationId);
+    /**
+     * Добавляет записи графика в рамках существующей транзакции.
+     *
+     * @param connection соединение с базой данных
+     * @param items список записей графика
+     */
+    default void createAll(
+            Connection connection,
+            List<PaymentScheduleItem> items
+    ) {
+        createAll(items);
+    }
+}
+
+
+============================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\dao\SaleDao.java
+============================================================
+
+package by.bsuir.computersales.server.dao;
+
+import by.bsuir.computersales.common.dto.CreateSaleData;
+import by.bsuir.computersales.common.model.Sale;
+import by.bsuir.computersales.common.model.SaleStatus;
+
+import java.util.List;
+import java.util.Optional;
+import java.sql.Connection;
+
+/**
+ * Интерфейс доступа к данным о продажах.
+ */
+public interface SaleDao {
+
+    /**
+     * Возвращает список всех продаж.
+     *
+     * @return список продаж
+     */
+    List<Sale> findAll();
+
+    /**
+     * Находит продажу по идентификатору.
+     *
+     * @param saleId идентификатор продажи
+     * @return найденная продажа или пустой Optional
+     */
+    Optional<Sale> findById(Long saleId);
+
+    /**
+     * Возвращает продажи указанного покупателя.
+     *
+     * @param customerId идентификатор покупателя
+     * @return список продаж покупателя
+     */
+    List<Sale> findByCustomerId(Long customerId);
+
+    /**
+     * Возвращает продажи, оформленные указанным сотрудником.
+     *
+     * @param userId идентификатор сотрудника
+     * @return список продаж сотрудника
+     */
+    List<Sale> findByUserId(Long userId);
+
+    /**
+     * Оформляет новую продажу в базе данных.
+     *
+     * Создание продажи, добавление товарных позиций
+     * и уменьшение остатков должны выполняться
+     * в рамках одной транзакции.
+     *
+     * @param userId идентификатор сотрудника
+     * @param saleData данные оформляемой продажи
+     * @return идентификатор созданной продажи
+     */
+    Long createSale(Long userId, CreateSaleData saleData);
+    /**
+     * Блокирует строку продажи до завершения текущей транзакции.
+     *
+     * @param connection соединение текущей транзакции
+     * @param saleId идентификатор продажи
+     */
+    default void lockById(Connection connection, Long saleId) {
+        throw new UnsupportedOperationException(
+                "Блокировка продажи не реализована"
+        );
+    }
+    /**
+     * Изменяет статус продажи в рамках существующей транзакции.
+     *
+     * @param connection соединение текущей транзакции
+     * @param saleId идентификатор продажи
+     * @param status новый статус продажи
+     */
+    default void updateStatus(
+            Connection connection,
+            Long saleId,
+            SaleStatus status
+    ) {
+        throw new UnsupportedOperationException(
+                "Обновление статуса продажи не реализовано"
+        );
+    }
+}
+
+
+============================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\dao\InstallmentApplicationDao.java
+============================================================
+
+package by.bsuir.computersales.server.dao;
+
+import by.bsuir.computersales.common.model.InstallmentApplication;
+import by.bsuir.computersales.common.model.InstallmentApplicationStatus;
+
+import java.sql.Connection;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Интерфейс доступа к данным о заявках на рассрочку.
+ */
+public interface InstallmentApplicationDao {
+
+    /**
+     * Возвращает список всех заявок на рассрочку.
+     *
+     * @return список заявок
+     */
+    List<InstallmentApplication> findAll();
+
+    /**
+     * Находит заявку по идентификатору.
+     *
+     * @param applicationId идентификатор заявки
+     * @return найденная заявка или пустой Optional
+     */
+    Optional<InstallmentApplication> findById(Long applicationId);
+
+    /**
+     * Находит заявку по идентификатору продажи.
+     *
+     * @param saleId идентификатор продажи
+     * @return найденная заявка или пустой Optional
+     */
+    Optional<InstallmentApplication> findBySaleId(Long saleId);
+
+    /**
+     * Возвращает заявки с указанным статусом.
+     *
+     * @param status статус заявки
+     * @return список заявок
+     */
+    List<InstallmentApplication> findByStatus(
+            InstallmentApplicationStatus status
+    );
+
+    /**
+     * Возвращает заявки, рассмотренные указанным сотрудником.
+     *
+     * @param reviewerId идентификатор сотрудника
+     * @return список заявок
+     */
+    List<InstallmentApplication> findByReviewerId(Long reviewerId);
+
+    /**
+     * Создаёт новую заявку на рассрочку.
+     *
+     * @param application данные заявки
+     * @return идентификатор созданной заявки
+     */
+    Long create(InstallmentApplication application);
+
+    /**
+     * Обновляет существующую заявку.
+     *
+     * @param application изменённые данные заявки
+     */
+    void update(InstallmentApplication application);
+    /**
+     * Обновляет заявку в рамках существующей транзакции.
+     *
+     * @param connection соединение с базой данных
+     * @param application изменённые данные заявки
+     */
+    default void update(
+            Connection connection,
+            InstallmentApplication application
+    ) {
+        update(application);
+    }
+    /**
+     * Блокирует строку заявки на рассрочку
+     * до завершения текущей транзакции.
+     *
+     * @param connection соединение текущей транзакции
+     * @param applicationId идентификатор заявки
+     */
+    default void lockById(Connection connection, Long applicationId) {
+        throw new UnsupportedOperationException(
+                "Блокировка заявки не реализована"
+        );
+    }
+}
+
+
+============================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\dao\impl\PaymentDaoImpl.java
+============================================================
+ФАЙЛ НЕ НАЙДЕН
+
+============================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\dao\impl\PaymentScheduleDaoImpl.java
+============================================================
+ФАЙЛ НЕ НАЙДЕН
+
+============================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\dao\impl\SaleDaoImpl.java
+============================================================
+ФАЙЛ НЕ НАЙДЕН
+
+============================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\dao\impl\InstallmentApplicationDaoImpl.java
+============================================================
+ФАЙЛ НЕ НАЙДЕН
+
+============================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\handler\ClientHandler.java
+============================================================
+ФАЙЛ НЕ НАЙДЕН
+
+============================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\service\InstallmentService.java
+============================================================
+package by.bsuir.computersales.server.service;
+
+import by.bsuir.computersales.common.model.Customer;
+import by.bsuir.computersales.common.model.InstallmentApplication;
+import by.bsuir.computersales.common.model.InstallmentApplicationStatus;
+import by.bsuir.computersales.common.model.Payment;
+import by.bsuir.computersales.common.model.PaymentScheduleItem;
+import by.bsuir.computersales.common.model.RoleType;
+import by.bsuir.computersales.common.model.Sale;
+import by.bsuir.computersales.common.model.User;
+import by.bsuir.computersales.server.config.ServerConfig;
+import by.bsuir.computersales.server.dao.InstallmentApplicationDao;
+import by.bsuir.computersales.server.dao.PaymentDao;
+import by.bsuir.computersales.server.dao.PaymentScheduleDao;
+import by.bsuir.computersales.server.dao.SaleDao;
+import by.bsuir.computersales.server.database.DatabaseManager;
+import by.bsuir.computersales.server.exception.BusinessRuleException;
+import by.bsuir.computersales.server.exception.ValidationException;
+
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * Сервис для выполнения операций с рассрочками.
+ *
+ * Содержит бизнес-логику создания и рассмотрения заявок,
+ * формирования графиков платежей и контроля погашения рассрочек.
+ */
+public class InstallmentService {
+
+    private final InstallmentApplicationDao applicationDao;
+    private final PaymentScheduleDao paymentScheduleDao;
+    private final PaymentDao paymentDao;
+    private final SaleDao saleDao;
+    private final ServerConfig serverConfig;
+    private final TransactionExecutor transactionExecutor;
+
+    /**
+     * Исполнитель транзакций.
+     *
+     * Используется для выполнения нескольких операций с базой данных
+     * в рамках одной транзакции.
+     */
+    @FunctionalInterface
+    interface TransactionExecutor {
+
+        List<PaymentScheduleItem> execute(TransactionOperation operation);
+    }
+
+    /**
+     * Операция, выполняемая внутри транзакции.
+     */
+    @FunctionalInterface
+    interface TransactionOperation {
+
+        List<PaymentScheduleItem> execute(Connection connection);
+    }
+
+    /**
+     * Создаёт сервис рассрочек без возможности выполнения
+     * транзакционного утверждения заявки.
+     *
+     * Используется, например, при проверке правил рассрочки.
+     *
+     * @param applicationDao доступ к заявкам на рассрочку
+     * @param paymentScheduleDao доступ к графикам платежей
+     * @param paymentDao доступ к фактическим платежам
+     * @param saleDao доступ к продажам
+     * @param serverConfig настройки и ограничения рассрочки
+     */
+    public InstallmentService(
+            InstallmentApplicationDao applicationDao,
+            PaymentScheduleDao paymentScheduleDao,
+            PaymentDao paymentDao,
+            SaleDao saleDao,
+            ServerConfig serverConfig
+    ) {
+        this(
+                applicationDao,
+                paymentScheduleDao,
+                paymentDao,
+                saleDao,
+                serverConfig,
+                (DatabaseManager) null
+        );
+    }
+
+    /**
+     * Создаёт сервис рассрочек с поддержкой транзакций.
+     *
+     * @param applicationDao доступ к заявкам на рассрочку
+     * @param paymentScheduleDao доступ к графикам платежей
+     * @param paymentDao доступ к фактическим платежам
+     * @param saleDao доступ к продажам
+     * @param serverConfig настройки и ограничения рассрочки
+     * @param databaseManager менеджер базы данных
+     */
+    public InstallmentService(
+            InstallmentApplicationDao applicationDao,
+            PaymentScheduleDao paymentScheduleDao,
+            PaymentDao paymentDao,
+            SaleDao saleDao,
+            ServerConfig serverConfig,
+            DatabaseManager databaseManager
+    ) {
+        this(
+                applicationDao,
+                paymentScheduleDao,
+                paymentDao,
+                saleDao,
+                serverConfig,
+                databaseManager == null
+                        ? null
+                        : operation -> databaseManager.executeInTransaction(
+                        operation::execute
+                ),
+                true
+        );
+    }
+
+    /**
+     * Внутренний конструктор сервиса.
+     *
+     * @param applicationDao доступ к заявкам
+     * @param paymentScheduleDao доступ к графикам платежей
+     * @param paymentDao доступ к платежам
+     * @param saleDao доступ к продажам
+     * @param serverConfig настройки рассрочки
+     * @param transactionExecutor исполнитель транзакций
+     * @param internal признак внутреннего вызова конструктора
+     */
+    private InstallmentService(
+            InstallmentApplicationDao applicationDao,
+            PaymentScheduleDao paymentScheduleDao,
+            PaymentDao paymentDao,
+            SaleDao saleDao,
+            ServerConfig serverConfig,
+            TransactionExecutor transactionExecutor,
+            boolean internal
+    ) {
+        this.applicationDao = Objects.requireNonNull(
+                applicationDao,
+                "InstallmentApplicationDao не должен быть null"
+        );
+
+        this.paymentScheduleDao = Objects.requireNonNull(
+                paymentScheduleDao,
+                "PaymentScheduleDao не должен быть null"
+        );
+
+        this.paymentDao = Objects.requireNonNull(
+                paymentDao,
+                "PaymentDao не должен быть null"
+        );
+
+        this.saleDao = Objects.requireNonNull(
+                saleDao,
+                "SaleDao не должен быть null"
+        );
+
+        this.serverConfig = Objects.requireNonNull(
+                serverConfig,
+                "ServerConfig не должен быть null"
+        );
+
+        this.transactionExecutor = transactionExecutor;
+    }
+
+    /**
+     * Создаёт сервис с переданным исполнителем транзакций.
+     *
+     * Метод предназначен для тестирования бизнес-логики
+     * утверждения заявок без подключения к реальной базе данных.
+     *
+     * @param applicationDao доступ к заявкам
+     * @param paymentScheduleDao доступ к графикам платежей
+     * @param paymentDao доступ к платежам
+     * @param saleDao доступ к продажам
+     * @param serverConfig настройки рассрочки
+     * @param transactionExecutor исполнитель транзакций
+     * @return созданный сервис
+     */
+    static InstallmentService withTransactionExecutor(
+            InstallmentApplicationDao applicationDao,
+            PaymentScheduleDao paymentScheduleDao,
+            PaymentDao paymentDao,
+            SaleDao saleDao,
+            ServerConfig serverConfig,
+            TransactionExecutor transactionExecutor
+    ) {
+        return new InstallmentService(
+                applicationDao,
+                paymentScheduleDao,
+                paymentDao,
+                saleDao,
+                serverConfig,
+                Objects.requireNonNull(
+                        transactionExecutor,
+                        "TransactionExecutor не должен быть null"
+                ),
+                true
+        );
+    }
+
+    /**
+     * Проверяет полноту и корректность основных данных заявки
+     * в соответствии с правилом R1.
+     *
+     * @param application проверяемая заявка
+     * @return список обнаруженных нарушений
+     */
+    private List<String> validateApplicationCompleteness(
+            InstallmentApplication application
+    ) {
+        List<String> errors = new ArrayList<>();
+
+        if (application == null) {
+            errors.add("Заявка на рассрочку отсутствует");
+            return errors;
+        }
+
+        Sale sale = application.getSale();
+
+        if (sale == null) {
+            errors.add(
+                    "Не указана продажа, для которой оформляется рассрочка"
+            );
+            return errors;
+        }
+
+        Customer customer = sale.getCustomer();
+
+        if (customer == null) {
+            errors.add("Не указаны данные покупателя");
+        } else {
+            if (customer.getFullName() == null
+                    || customer.getFullName().isBlank()) {
+                errors.add("Не указано ФИО покупателя");
+            }
+
+            if (customer.getPhone() == null
+                    || customer.getPhone().isBlank()) {
+                errors.add("Не указан телефон покупателя");
+            }
+
+            if (customer.getDocumentReference() == null
+                    || customer.getDocumentReference().isBlank()) {
+                errors.add("Не указаны документные данные покупателя");
+            }
+        }
+
+        if (application.getTermMonths() <= 0) {
+            errors.add("Не указан срок рассрочки");
+        }
+
+        BigDecimal downPayment = application.getDownPaymentAmount();
+
+        if (downPayment == null) {
+            errors.add("Не указан первоначальный взнос");
+        } else {
+            if (downPayment.compareTo(BigDecimal.ZERO) < 0) {
+                errors.add(
+                        "Первоначальный взнос не может быть отрицательным"
+                );
+            }
+
+            BigDecimal totalAmount = sale.getTotalAmount();
+
+            if (downPayment.compareTo(totalAmount) >= 0) {
+                errors.add(
+                        "Первоначальный взнос должен быть меньше стоимости продажи"
+                );
+            }
+        }
+
+        return errors;
+    }
+
+    /**
+     * Проверяет соответствие срока рассрочки установленным ограничениям
+     * в соответствии с правилом R2.
+     *
+     * @param application проверяемая заявка
+     * @return список обнаруженных нарушений
+     */
+    private List<String> validateInstallmentTerm(
+            InstallmentApplication application
+    ) {
+        List<String> errors = new ArrayList<>();
+
+        if (application == null) {
+            errors.add("Заявка на рассрочку отсутствует");
+            return errors;
+        }
+
+        int termMonths = application.getTermMonths();
+        int minTerm = serverConfig.getMinInstallmentTerm();
+        int maxTerm = serverConfig.getMaxInstallmentTerm();
+
+        if (termMonths < minTerm) {
+            errors.add(
+                    "Срок рассрочки меньше минимально допустимого: "
+                            + minTerm + " мес."
+            );
+        }
+
+        if (termMonths > maxTerm) {
+            errors.add(
+                    "Срок рассрочки превышает максимально допустимый: "
+                            + maxTerm + " мес."
+            );
+        }
+
+        return errors;
+    }
+
+    /**
+     * Проверяет соответствие первоначального взноса минимальному проценту
+     * от стоимости продажи в соответствии с правилом R3.
+     *
+     * @param application проверяемая заявка
+     * @return список обнаруженных нарушений
+     */
+    private List<String> validateDownPayment(
+            InstallmentApplication application
+    ) {
+        List<String> errors = new ArrayList<>();
+
+        if (application == null || application.getSale() == null) {
+            errors.add(
+                    "Невозможно проверить первоначальный взнос: "
+                            + "отсутствуют данные заявки или продажи"
+            );
+            return errors;
+        }
+
+        BigDecimal downPayment = application.getDownPaymentAmount();
+
+        if (downPayment == null) {
+            errors.add("Не указан первоначальный взнос");
+            return errors;
+        }
+
+        BigDecimal totalAmount = application.getSale().getTotalAmount();
+        BigDecimal minPercent = serverConfig.getMinDownPaymentPercent();
+
+        BigDecimal minimumDownPayment = totalAmount
+                .multiply(minPercent)
+                .divide(new BigDecimal("100"));
+
+        if (downPayment.compareTo(minimumDownPayment) < 0) {
+            errors.add(
+                    "Первоначальный взнос меньше минимально допустимого ("
+                            + minPercent.stripTrailingZeros().toPlainString()
+                            + "% от стоимости продажи)"
+            );
+        }
+
+        return errors;
+    }
+
+    /**
+     * Проверяет, не превышает ли сумма финансирования
+     * максимально допустимое значение в соответствии с правилом R4.
+     *
+     * @param application проверяемая заявка
+     * @return список обнаруженных нарушений
+     */
+    private List<String> validateFinancedAmount(
+            InstallmentApplication application
+    ) {
+        List<String> errors = new ArrayList<>();
+
+        if (application == null || application.getSale() == null) {
+            errors.add(
+                    "Невозможно проверить сумму финансирования: "
+                            + "отсутствуют данные заявки или продажи"
+            );
+            return errors;
+        }
+
+        BigDecimal downPayment = application.getDownPaymentAmount();
+
+        if (downPayment == null) {
+            errors.add("Не указан первоначальный взнос");
+            return errors;
+        }
+
+        BigDecimal totalAmount = application.getSale().getTotalAmount();
+
+        BigDecimal financedAmount = totalAmount.subtract(downPayment);
+
+        BigDecimal maxFinancedAmount =
+                serverConfig.getMaxFinancedAmount();
+
+        if (financedAmount.compareTo(maxFinancedAmount) > 0) {
+            errors.add(
+                    "Сумма финансирования превышает максимально допустимое значение: "
+                            + maxFinancedAmount.toPlainString()
+            );
+        }
+
+        return errors;
+    }
+
+    /**
+     * Проверяет наличие просроченных платежей по другим рассрочкам
+     * покупателя в соответствии с правилом R5.
+     *
+     * Просроченным считается плановый платёж, срок которого наступил
+     * до текущей даты, а фактически внесённая сумма меньше плановой.
+     *
+     * @param application проверяемая заявка
+     * @return список обнаруженных нарушений
+     */
+    private List<String> validateOverduePayments(
+            InstallmentApplication application
+    ) {
+        List<String> errors = new ArrayList<>();
+
+        if (application == null
+                || application.getSale() == null
+                || application.getSale().getCustomer() == null) {
+            errors.add(
+                    "Невозможно проверить просроченные платежи: "
+                            + "отсутствуют данные заявки или покупателя"
+            );
+            return errors;
+        }
+
+        Long customerId = application.getSale()
+                .getCustomer()
+                .getCustomerId();
+
+        if (customerId == null) {
+            errors.add(
+                    "Невозможно проверить просроченные платежи: "
+                            + "не определён покупатель"
+            );
+            return errors;
+        }
+
+        LocalDate today = LocalDate.now();
+
+        List<Sale> customerSales =
+                saleDao.findByCustomerId(customerId);
+
+        for (Sale sale : customerSales) {
+            if (sale == null || sale.getSaleId() == null) {
+                continue;
+            }
+
+            Optional<InstallmentApplication> otherApplicationOptional =
+                    applicationDao.findBySaleId(sale.getSaleId());
+
+            if (otherApplicationOptional.isEmpty()) {
+                continue;
+            }
+
+            InstallmentApplication otherApplication =
+                    otherApplicationOptional.get();
+
+            if (Objects.equals(
+                    application.getApplicationId(),
+                    otherApplication.getApplicationId()
+            )) {
+                continue;
+            }
+
+            InstallmentApplicationStatus otherStatus =
+                    otherApplication.getStatus();
+
+            if (otherStatus != InstallmentApplicationStatus.APPROVED
+                    && otherStatus
+                    != InstallmentApplicationStatus.IN_PROGRESS) {
+                continue;
+            }
+
+            Long otherApplicationId =
+                    otherApplication.getApplicationId();
+
+            if (otherApplicationId == null) {
+                continue;
+            }
+
+            List<PaymentScheduleItem> scheduleItems =
+                    paymentScheduleDao.findByApplicationId(
+                            otherApplicationId
+                    );
+
+            List<Payment> actualPayments =
+                    paymentDao.findByApplicationId(otherApplicationId);
+
+            for (PaymentScheduleItem scheduleItem : scheduleItems) {
+                if (scheduleItem == null
+                        || scheduleItem.getDueDate() == null
+                        || scheduleItem.getPlannedAmount() == null) {
+                    continue;
+                }
+
+                if (!scheduleItem.getDueDate().isBefore(today)) {
+                    continue;
+                }
+
+                BigDecimal paidAmount = BigDecimal.ZERO;
+
+                for (Payment payment : actualPayments) {
+                    if (payment == null
+                            || !Objects.equals(
+                            payment.getPaymentNumber(),
+                            scheduleItem.getPaymentNumber()
+                    )
+                            || payment.getAmount() == null) {
+                        continue;
+                    }
+
+                    paidAmount = paidAmount.add(payment.getAmount());
+                }
+
+                if (paidAmount.compareTo(
+                        scheduleItem.getPlannedAmount()
+                ) < 0) {
+                    errors.add(
+                            "У покупателя имеются просроченные платежи "
+                                    + "по другой рассрочке"
+                    );
+                    return errors;
+                }
+            }
+        }
+
+        return errors;
+    }
+
+    /**
+     * Проверяет количество действующих рассрочек покупателя
+     * в соответствии с правилом R6.
+     *
+     * Активными считаются заявки со статусами APPROVED
+     * и IN_PROGRESS. Текущая проверяемая заявка исключается
+     * из подсчёта.
+     *
+     * @param application проверяемая заявка
+     * @return список обнаруженных нарушений
+     */
+    private List<String> validateActiveInstallments(
+            InstallmentApplication application
+    ) {
+        List<String> errors = new ArrayList<>();
+
+        if (application == null
+                || application.getSale() == null
+                || application.getSale().getCustomer() == null) {
+            errors.add(
+                    "Невозможно проверить количество действующих рассрочек: "
+                            + "отсутствуют данные заявки или покупателя"
+            );
+            return errors;
+        }
+
+        Long customerId = application.getSale()
+                .getCustomer()
+                .getCustomerId();
+
+        if (customerId == null) {
+            errors.add(
+                    "Невозможно проверить количество действующих рассрочек: "
+                            + "не определён покупатель"
+            );
+            return errors;
+        }
+
+        Long currentSaleId = application.getSale().getSaleId();
+
+        int activeCount = 0;
+
+        List<Sale> customerSales =
+                saleDao.findByCustomerId(customerId);
+
+        for (Sale sale : customerSales) {
+            if (sale == null || sale.getSaleId() == null) {
+                continue;
+            }
+
+            // Не учитываем продажу текущей заявки.
+            if (Objects.equals(currentSaleId, sale.getSaleId())) {
+                continue;
+            }
+
+            Optional<InstallmentApplication> otherApplicationOptional =
+                    applicationDao.findBySaleId(sale.getSaleId());
+
+            if (otherApplicationOptional.isEmpty()) {
+                continue;
+            }
+
+            InstallmentApplication otherApplication =
+                    otherApplicationOptional.get();
+
+            InstallmentApplicationStatus status =
+                    otherApplication.getStatus();
+
+            if (status == InstallmentApplicationStatus.APPROVED
+                    || status == InstallmentApplicationStatus.IN_PROGRESS) {
+                activeCount++;
+            }
+        }
+
+        int maxActiveInstallments =
+                serverConfig.getMaxActiveInstallments();
+
+        if (activeCount >= maxActiveInstallments) {
+            errors.add(
+                    "Превышено допустимое количество действующих рассрочек "
+                            + "(максимум "
+                            + maxActiveInstallments
+                            + ")"
+            );
+        }
+
+        return errors;
+    }
+
+    /**
+     * Утверждает заявку на рассрочку и создаёт график платежей.
+     *
+     * Изменение статуса заявки и сохранение графика выполняются
+     * в рамках одной транзакции.
+     *
+     * @param applicationId идентификатор заявки
+     * @param reviewer сотрудник, утверждающий заявку
+     * @return сформированный график платежей
+     */
+    public List<PaymentScheduleItem> approveApplication(
+            Long applicationId,
+            User reviewer
+    ) {
+        if (transactionExecutor == null) {
+            throw new IllegalStateException(
+                    "Для утверждения заявки необходим DatabaseManager"
+            );
+        }
+
+        if (applicationId == null || applicationId <= 0) {
+            throw new ValidationException(
+                    "Идентификатор заявки должен быть положительным"
+            );
+        }
+
+        if (reviewer == null
+                || reviewer.getUserId() == null
+                || reviewer.getUserId() <= 0) {
+            throw new ValidationException(
+                    "Необходимо указать сотрудника, утверждающего заявку"
+            );
+        }
+
+        if (!reviewer.isActive()) {
+            throw new BusinessRuleException(
+                    "Неактивный сотрудник не может утверждать заявку"
+            );
+        }
+
+        if (reviewer.getRole() == null
+                || (reviewer.getRole().getRoleType() != RoleType.ADMIN
+                && reviewer.getRole().getRoleType()
+                != RoleType.INSTALLMENT_SPECIALIST)) {
+            throw new BusinessRuleException(
+                    "Недостаточно прав для утверждения заявки на рассрочку"
+            );
+        }
+
+        InstallmentApplication application =
+                applicationDao.findById(applicationId)
+                        .orElseThrow(() -> new ValidationException(
+                                "Заявка с идентификатором "
+                                        + applicationId + " не найдена"
+                        ));
+
+        InstallmentApplicationStatus currentStatus =
+                application.getStatus();
+
+        if (currentStatus != InstallmentApplicationStatus.CREATED
+                && currentStatus != InstallmentApplicationStatus.ON_REVIEW) {
+            throw new BusinessRuleException(
+                    "Можно утверждать только созданные заявки "
+                            + "или заявки, находящиеся на рассмотрении"
+            );
+        }
+
+        List<String> errors = validateApplication(application);
+
+        if (!errors.isEmpty()) {
+            throw new BusinessRuleException(
+                    "Заявка не может быть утверждена: "
+                            + String.join("; ", errors)
+            );
+        }
+
+        LocalDateTime approvalDateTime = LocalDateTime.now();
+        LocalDate approvalDate = approvalDateTime.toLocalDate();
+
+        application.setReviewer(reviewer);
+        application.setDecisionDate(approvalDateTime);
+        application.setDecisionReason(null);
+        application.setStatus(InstallmentApplicationStatus.APPROVED);
+
+        ScheduleCalculator calculator = new ScheduleCalculator();
+
+        List<PaymentScheduleItem> scheduleItems =
+                calculator.calculate(application, approvalDate);
+
+        return transactionExecutor.execute(connection -> {
+            applicationDao.update(connection, application);
+
+            paymentScheduleDao.createAll(connection, scheduleItems);
+
+            return scheduleItems;
+        });
+    }
+
+    /**
+     * Выполняет комплексную проверку заявки на рассрочку
+     * по правилам R1–R6.
+     *
+     * @param application проверяемая заявка
+     * @return список обнаруженных нарушений; пустой список означает,
+     * что нарушений не обнаружено
+     */
+    public List<String> validateApplication(
+            InstallmentApplication application
+    ) {
+        List<String> errors = new ArrayList<>();
+
+        // R1 — проверка полноты данных заявки.
+        errors.addAll(validateApplicationCompleteness(application));
+
+        if (application == null) {
+            return errors;
+        }
+
+        // R2 — проверка срока рассрочки.
+        errors.addAll(validateInstallmentTerm(application));
+
+        // R3 и R4 — проверка первоначального взноса
+        // и суммы финансирования.
+        if (application.getSale() != null
+                && application.getDownPaymentAmount() != null) {
+            errors.addAll(validateDownPayment(application));
+            errors.addAll(validateFinancedAmount(application));
+        }
+
+        // R5 — проверка просроченных платежей по другим рассрочкам.
+        if (application.getSale() != null
+                && application.getSale().getCustomer() != null) {
+            errors.addAll(validateOverduePayments(application));
+        }
+
+        // R6 — проверка количества действующих рассрочек.
+        if (application.getSale() != null
+                && application.getSale().getCustomer() != null) {
+            errors.addAll(validateActiveInstallments(application));
+        }
+
+        return errors;
+    }
+}
+
+============================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\service\AuthService.java
+============================================================
+
+package by.bsuir.computersales.server.service;
+
+import by.bsuir.computersales.common.dto.LoginResult;
+import by.bsuir.computersales.common.model.User;
+import by.bsuir.computersales.common.protocol.ErrorCode;
+import by.bsuir.computersales.server.dao.UserCredentials;
+import by.bsuir.computersales.server.dao.UserDao;
+import by.bsuir.computersales.server.exception.AuthenticationException;
+import by.bsuir.computersales.server.security.PasswordHasher;
+import by.bsuir.computersales.server.security.SessionManager;
+
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * Сервис аутентификации пользователей системы.
+ *
+ * Отвечает за проверку учётных данных,
+ * создание пользовательских сессий
+ * и завершение авторизации.
+ */
+public class AuthService {
+
+    private final UserDao userDao;
+    private final PasswordHasher passwordHasher;
+    private final SessionManager sessionManager;
+
+    /**
+     * Создаёт сервис аутентификации.
+     *
+     * @param userDao доступ к данным пользователей
+     * @param passwordHasher средство проверки паролей
+     * @param sessionManager менеджер пользовательских сессий
+     */
+    public AuthService(
+            UserDao userDao,
+            PasswordHasher passwordHasher,
+            SessionManager sessionManager
+    ) {
+        this.userDao = Objects.requireNonNull(
+                userDao,
+                "DAO пользователей не должен быть null"
+        );
+
+        this.passwordHasher = Objects.requireNonNull(
+                passwordHasher,
+                "Средство проверки паролей не должно быть null"
+        );
+
+        this.sessionManager = Objects.requireNonNull(
+                sessionManager,
+                "Менеджер сессий не должен быть null"
+        );
+    }
+
+    /**
+     * Выполняет авторизацию пользователя.
+     *
+     * Проверяет логин и пароль, убеждается,
+     * что учётная запись активна, после чего
+     * создаёт пользовательскую сессию.
+     *
+     * @param login логин пользователя
+     * @param password пароль пользователя
+     * @return результат успешной авторизации
+     * @throws AuthenticationException при неверных учётных данных
+     */
+    public LoginResult login(String login, String password) {
+        if (login == null || login.isBlank()
+                || password == null || password.isEmpty()) {
+            throw new AuthenticationException(
+                    ErrorCode.INVALID_CREDENTIALS,
+                    "Неверный логин или пароль"
+            );
+        }
+
+        Optional<UserCredentials> optionalCredentials =
+                userDao.findCredentialsByLogin(login);
+
+        if (optionalCredentials.isEmpty()) {
+            throw invalidCredentials();
+        }
+
+        UserCredentials credentials = optionalCredentials.get();
+
+        User user = credentials.user();
+
+        boolean passwordCorrect = passwordHasher.verifyPassword(
+                password,
+                credentials.passwordHash()
+        );
+
+        if (!passwordCorrect || !user.isActive()) {
+            throw invalidCredentials();
+        }
+
+        String sessionToken = sessionManager.createSession(
+                user.getUserId()
+        );
+
+        return new LoginResult(sessionToken, user);
+    }
+
+    /**
+     * Завершает пользовательскую сессию.
+     *
+     * @param sessionToken токен сессии
+     */
+    public void logout(String sessionToken) {
+        sessionManager.invalidateSession(sessionToken);
+    }
+
+    /**
+     * Получает идентификатор авторизованного пользователя.
+     *
+     * При проверке действительности токена
+     * обновляется время активности сессии.
+     *
+     * @param sessionToken токен сессии
+     * @return идентификатор пользователя
+     */
+    public Long getAuthenticatedUserId(String sessionToken) {
+        return sessionManager.getUserId(sessionToken);
+    }
+
+    /**
+     * Создаёт единообразную ошибку авторизации.
+     *
+     * Не раскрывает, существует ли пользователь
+     * и правильно ли введён пароль.
+     *
+     * @return исключение с общим сообщением
+     */
+    private AuthenticationException invalidCredentials() {
+        return new AuthenticationException(
+                ErrorCode.INVALID_CREDENTIALS,
+                "Неверный логин или пароль"
+        );
+    }
+}
+
+
+============================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\model\Payment.java
+============================================================
+
+package by.bsuir.computersales.common.model;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+/**
+ * Модель фактически внесённого платежа.
+ */
+public class Payment implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private String referenceNumber;
+    private Long paymentId;
+    private Sale sale;
+    private InstallmentApplication application;
+    private Integer paymentNumber;
+    private LocalDateTime paymentDate;
+    private BigDecimal amount;
+    private PaymentMethod paymentMethod;
+    private PaymentPurpose paymentPurpose;
+
+    public Payment() {
+        this.paymentDate = LocalDateTime.now();
+    }
+
+    public Payment(
+            Long paymentId,
+            Sale sale,
+            InstallmentApplication application,
+            Integer paymentNumber,
+            LocalDateTime paymentDate,
+            BigDecimal amount,
+            PaymentMethod paymentMethod,
+            PaymentPurpose paymentPurpose,
+            String referenceNumber) {
+
+        this(
+                paymentId,
+                sale,
+                application,
+                paymentNumber,
+                paymentDate,
+                amount,
+                paymentMethod,
+                paymentPurpose
+        );
+
+        this.referenceNumber = referenceNumber;
+    }
+    public String getReferenceNumber() {
+        return referenceNumber;
+    }
+
+    public void setReferenceNumber(String referenceNumber) {
+        this.referenceNumber = referenceNumber;
+    }
+    public Payment(
+            Long paymentId,
+            Sale sale,
+            InstallmentApplication application,
+            Integer paymentNumber,
+            LocalDateTime paymentDate,
+            BigDecimal amount,
+            PaymentMethod paymentMethod,
+            PaymentPurpose paymentPurpose) {
+
+        setPaymentId(paymentId);
+        setSale(sale);
+        setApplication(application);
+        setPaymentNumber(paymentNumber);
+        setPaymentDate(paymentDate);
+        setAmount(amount);
+        setPaymentMethod(paymentMethod);
+        setPaymentPurpose(paymentPurpose);
+    }
+
+    public Long getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(Long paymentId) {
+        if (paymentId != null && paymentId <= 0) {
+            throw new IllegalArgumentException(
+                    "Идентификатор платежа должен быть положительным"
+            );
+        }
+        this.paymentId = paymentId;
+    }
+
+    public Sale getSale() {
+        return sale;
+    }
+
+    public void setSale(Sale sale) {
+        this.sale = Objects.requireNonNull(
+                sale,
+                "Продажа не должна быть null"
+        );
+    }
+
+    public InstallmentApplication getApplication() {
+        return application;
+    }
+
+    public void setApplication(InstallmentApplication application) {
+        this.application = application;
+    }
+
+    public Integer getPaymentNumber() {
+        return paymentNumber;
+    }
+
+    public void setPaymentNumber(Integer paymentNumber) {
+        if (paymentNumber != null && paymentNumber <= 0) {
+            throw new IllegalArgumentException(
+                    "Номер платежа должен быть положительным"
+            );
+        }
+        this.paymentNumber = paymentNumber;
+    }
+
+    public LocalDateTime getPaymentDate() {
+        return paymentDate;
+    }
+
+    public void setPaymentDate(LocalDateTime paymentDate) {
+        this.paymentDate = Objects.requireNonNull(
+                paymentDate,
+                "Дата платежа не должна быть null"
+        );
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        if (amount == null || amount.signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "Сумма платежа должна быть больше нуля"
+            );
+        }
+        this.amount = amount;
+    }
+
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(PaymentMethod paymentMethod) {
+        this.paymentMethod = Objects.requireNonNull(
+                paymentMethod,
+                "Способ оплаты не должен быть null"
+        );
+    }
+
+    public PaymentPurpose getPaymentPurpose() {
+        return paymentPurpose;
+    }
+
+    public void setPaymentPurpose(PaymentPurpose paymentPurpose) {
+        this.paymentPurpose = Objects.requireNonNull(
+                paymentPurpose,
+                "Назначение платежа не должно быть null"
+        );
+    }
+
+    /**
+     * Проверяет согласованность назначения платежа
+     * и наличия ссылки на заявку и номер платежа.
+     */
+    public void validatePaymentReferences() {
+        boolean hasApplication = application != null;
+        boolean hasPaymentNumber = paymentNumber != null;
+
+        if (hasApplication != hasPaymentNumber) {
+            throw new IllegalArgumentException(
+                    "Заявка и номер платежа должны быть указаны одновременно"
+            );
+        }
+
+        boolean installmentPayment =
+                paymentPurpose == PaymentPurpose.INSTALLMENT_PAYMENT;
+
+        if (installmentPayment != hasApplication) {
+            throw new IllegalArgumentException(
+                    "Для платежа по рассрочке необходимо указать заявку "
+                            + "и номер платежа; для остальных назначений "
+                            + "эти поля должны отсутствовать"
+            );
+        }
+
+        if (application != null
+                && application.getSale() != null
+                && sale != null
+                && !Objects.equals(
+                application.getSale().getSaleId(),
+                sale.getSaleId())) {
+            throw new IllegalArgumentException(
+                    "Заявка должна относиться к той же продаже, что и платёж"
+            );
+        }
+    }
+}
+
+
+============================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\model\PaymentSchedule.java
+============================================================
+ФАЙЛ НЕ НАЙДЕН
+
+============================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\model\Sale.java
+============================================================
+
+package by.bsuir.computersales.common.model;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * Модель продажи компьютерной техники.
+ */
+public class Sale implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private Long saleId;
+    private Customer customer;
+    private User user;
+    private LocalDateTime saleDate;
+    private SaleStatus status;
+    private PaymentType paymentType;
+    private List<SaleItem> items;
+
+    public Sale() {
+        this.items = new ArrayList<>();
+    }
+
+    public Sale(
+            Long saleId,
+            Customer customer,
+            User user,
+            LocalDateTime saleDate,
+            SaleStatus status,
+            PaymentType paymentType,
+            List<SaleItem> items) {
+
+        this();
+
+        this.saleId = saleId;
+        setCustomer(customer);
+        setUser(user);
+        setSaleDate(saleDate);
+        setStatus(status);
+        setPaymentType(paymentType);
+        setItems(items);
+    }
+
+    public Long getSaleId() {
+        return saleId;
+    }
+
+    public void setSaleId(Long saleId) {
+        if (saleId != null && saleId <= 0) {
+            throw new IllegalArgumentException(
+                    "Идентификатор продажи должен быть положительным"
+            );
+        }
+
+        this.saleId = saleId;
+    }
+
+    public Customer getCustomer() {
+        return customer;
+    }
+
+    public void setCustomer(Customer customer) {
+        this.customer = Objects.requireNonNull(
+                customer,
+                "Покупатель не должен быть null"
+        );
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = Objects.requireNonNull(
+                user,
+                "Сотрудник не должен быть null"
+        );
+    }
+
+    public LocalDateTime getSaleDate() {
+        return saleDate;
+    }
+
+    public void setSaleDate(LocalDateTime saleDate) {
+        this.saleDate = Objects.requireNonNull(
+                saleDate,
+                "Дата продажи не должна быть null"
+        );
+    }
+
+    public SaleStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(SaleStatus status) {
+        this.status = Objects.requireNonNull(
+                status,
+                "Статус продажи не должен быть null"
+        );
+    }
+
+    public PaymentType getPaymentType() {
+        return paymentType;
+    }
+
+    public void setPaymentType(PaymentType paymentType) {
+        this.paymentType = Objects.requireNonNull(
+                paymentType,
+                "Тип оплаты не должен быть null"
+        );
+    }
+
+    public List<SaleItem> getItems() {
+        return items;
+    }
+
+    public void setItems(List<SaleItem> items) {
+        Objects.requireNonNull(
+                items,
+                "Список товаров не должен быть null"
+        );
+
+        if (items.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException(
+                    "Список не должен содержать null"
+            );
+        }
+
+        this.items = new ArrayList<>(items);
+    }
+
+    /**
+     * Возвращает общую стоимость продажи.
+     */
+    public java.math.BigDecimal getTotalAmount() {
+        return items.stream()
+                .map(SaleItem::getTotalPrice)
+                .reduce(
+                        java.math.BigDecimal.ZERO,
+                        java.math.BigDecimal::add
+                );
+    }
+}
+
+
+============================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\model\InstallmentApplication.java
+============================================================
+
+package by.bsuir.computersales.common.model;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+/**
+ * Модель заявки на оформление рассрочки.
+ */
+public class InstallmentApplication implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private Long applicationId;
+    private Sale sale;
+    private User reviewer;
+    private LocalDateTime applicationDate;
+    private LocalDateTime decisionDate;
+    private int termMonths;
+    private BigDecimal downPaymentAmount;
+    private BigDecimal interestRate;
+    private InstallmentApplicationStatus status;
+    private String decisionReason;
+
+    public InstallmentApplication() {
+        this.applicationDate = LocalDateTime.now();
+        this.downPaymentAmount = BigDecimal.ZERO;
+        this.interestRate = BigDecimal.ZERO;
+        this.status = InstallmentApplicationStatus.CREATED;
+    }
+
+    public InstallmentApplication(
+            Long applicationId,
+            Sale sale,
+            User reviewer,
+            LocalDateTime applicationDate,
+            LocalDateTime decisionDate,
+            int termMonths,
+            BigDecimal downPaymentAmount,
+            BigDecimal interestRate,
+            InstallmentApplicationStatus status,
+            String decisionReason) {
+
+        setApplicationId(applicationId);
+        setSale(sale);
+        setReviewer(reviewer);
+        setApplicationDate(applicationDate);
+        setDecisionDate(decisionDate);
+        setTermMonths(termMonths);
+        setDownPaymentAmount(downPaymentAmount);
+        setInterestRate(interestRate);
+        setStatus(status);
+        setDecisionReason(decisionReason);
+    }
+
+    public Long getApplicationId() {
+        return applicationId;
+    }
+
+    public void setApplicationId(Long applicationId) {
+        if (applicationId != null && applicationId <= 0) {
+            throw new IllegalArgumentException(
+                    "Идентификатор заявки должен быть положительным"
+            );
+        }
+        this.applicationId = applicationId;
+    }
+
+    public Sale getSale() {
+        return sale;
+    }
+
+    public void setSale(Sale sale) {
+        this.sale = Objects.requireNonNull(
+                sale, "Продажа не должна быть null"
+        );
+    }
+
+    public User getReviewer() {
+        return reviewer;
+    }
+
+    public void setReviewer(User reviewer) {
+        this.reviewer = reviewer;
+    }
+
+    public LocalDateTime getApplicationDate() {
+        return applicationDate;
+    }
+
+    public void setApplicationDate(LocalDateTime applicationDate) {
+        this.applicationDate = Objects.requireNonNull(
+                applicationDate, "Дата заявки не должна быть null"
+        );
+
+        if (decisionDate != null && decisionDate.isBefore(applicationDate)) {
+            throw new IllegalArgumentException(
+                    "Дата решения не может быть раньше даты заявки"
+            );
+        }
+    }
+
+    public LocalDateTime getDecisionDate() {
+        return decisionDate;
+    }
+
+    public void setDecisionDate(LocalDateTime decisionDate) {
+        if (decisionDate != null
+                && applicationDate != null
+                && decisionDate.isBefore(applicationDate)) {
+            throw new IllegalArgumentException(
+                    "Дата решения не может быть раньше даты заявки"
+            );
+        }
+        this.decisionDate = decisionDate;
+    }
+
+    public int getTermMonths() {
+        return termMonths;
+    }
+
+    public void setTermMonths(int termMonths) {
+        if (termMonths <= 0) {
+            throw new IllegalArgumentException(
+                    "Срок рассрочки должен быть больше нуля"
+            );
+        }
+        this.termMonths = termMonths;
+    }
+
+    public BigDecimal getDownPaymentAmount() {
+        return downPaymentAmount;
+    }
+
+    public void setDownPaymentAmount(BigDecimal downPaymentAmount) {
+        if (downPaymentAmount == null || downPaymentAmount.signum() < 0) {
+            throw new IllegalArgumentException(
+                    "Первоначальный взнос не может быть null или отрицательным"
+            );
+        }
+        this.downPaymentAmount = downPaymentAmount;
+    }
+
+    public BigDecimal getInterestRate() {
+        return interestRate;
+    }
+
+    public void setInterestRate(BigDecimal interestRate) {
+        if (interestRate == null || interestRate.signum() < 0) {
+            throw new IllegalArgumentException(
+                    "Процентная ставка не может быть null или отрицательной"
+            );
+        }
+        this.interestRate = interestRate;
+    }
+
+    public InstallmentApplicationStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(InstallmentApplicationStatus status) {
+        this.status = Objects.requireNonNull(
+                status, "Статус заявки не должен быть null"
+        );
+    }
+
+    public String getDecisionReason() {
+        return decisionReason;
+    }
+
+    public void setDecisionReason(String decisionReason) {
+        if ((status == InstallmentApplicationStatus.REJECTED
+                || status == InstallmentApplicationStatus.RETURNED)
+                && (decisionReason == null || decisionReason.isBlank())) {
+            throw new IllegalArgumentException(
+                    "Для отклонённой или возвращённой заявки необходимо указать причину"
+            );
+        }
+        this.decisionReason = decisionReason;
+    }
+}
+
+
+============================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\protocol\Request.java
+============================================================
+
+package by.bsuir.computersales.common.protocol;
+
+import java.io.Serializable;
+import java.util.UUID;
+
+/**
+ * Запрос от клиента к серверу.
+ */
+public class Request implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    // Уникальный идентификатор запроса
+    private final UUID requestId;
+
+    // Тип операции
+    private final RequestType type;
+
+    // Токен пользовательской сессии.
+    // При авторизации значение равно null.
+    private final String sessionToken;
+
+    // Данные запроса
+    private final Serializable payload;
+
+    public Request(
+            RequestType type,
+            String sessionToken,
+            Serializable payload
+    ) {
+        if (type == null) {
+            throw new IllegalArgumentException(
+                    "Тип запроса не может быть null"
+            );
+        }
+
+        this.requestId = UUID.randomUUID();
+        this.type = type;
+        this.sessionToken = sessionToken;
+        this.payload = payload;
+    }
+
+    public UUID getRequestId() {
+        return requestId;
+    }
+
+    public RequestType getType() {
+        return type;
+    }
+
+    public String getSessionToken() {
+        return sessionToken;
+    }
+
+    public Serializable getPayload() {
+        return payload;
+    }
+}
+
+
+============================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\protocol\Response.java
+============================================================
+
+package by.bsuir.computersales.common.protocol;
+
+import java.io.Serializable;
+import java.util.UUID;
+
+/**
+ * Ответ сервера клиенту.
+ */
+public class Response implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private final UUID requestId;
+    private final ResponseStatus status;
+    private final ErrorCode errorCode;
+    private final String message;
+    private final Serializable payload;
+
+    public Response(
+            UUID requestId,
+            ResponseStatus status,
+            ErrorCode errorCode,
+            String message,
+            Serializable payload
+    ) {
+        if (requestId == null) {
+            throw new IllegalArgumentException(
+                    "Идентификатор запроса не может быть null"
+            );
+        }
+
+        if (status == null) {
+            throw new IllegalArgumentException(
+                    "Статус ответа не может быть null"
+            );
+        }
+
+        if (status == ResponseStatus.SUCCESS && errorCode != null) {
+            throw new IllegalArgumentException(
+                    "Успешный ответ не должен содержать код ошибки"
+            );
+        }
+
+        if (status != ResponseStatus.SUCCESS && errorCode == null) {
+            throw new IllegalArgumentException(
+                    "Ответ с ошибкой должен содержать код ошибки"
+            );
+        }
+
+        this.requestId = requestId;
+        this.status = status;
+        this.errorCode = errorCode;
+        this.message = message;
+        this.payload = payload;
+    }
+
+    public UUID getRequestId() {
+        return requestId;
+    }
+
+    public ResponseStatus getStatus() {
+        return status;
+    }
+
+    public ErrorCode getErrorCode() {
+        return errorCode;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public Serializable getPayload() {
+        return payload;
+    }
+
+    public static Response success(
+            UUID requestId,
+            String message,
+            Serializable payload
+    ) {
+        return new Response(
+                requestId,
+                ResponseStatus.SUCCESS,
+                null,
+                message,
+                payload
+        );
+    }
+
+    public static Response error(
+            UUID requestId,
+            ErrorCode errorCode,
+            String message
+    ) {
+        return new Response(
+                requestId,
+                ResponseStatus.ERROR,
+                errorCode,
+                message,
+                null
+        );
+    }
+
+    public static Response unauthorized(
+            UUID requestId,
+            ErrorCode errorCode,
+            String message
+    ) {
+        return new Response(
+                requestId,
+                ResponseStatus.UNAUTHORIZED,
+                errorCode,
+                message,
+                null
+        );
+    }
+}
+
+
+============================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\protocol\RequestType.java
+============================================================
+
+package by.bsuir.computersales.common.protocol;
+
+/**
+ * Типы запросов, поддерживаемых сервером.
+ */
+public enum RequestType {
+
+    // Авторизация и управление сессией
+    LOGIN,
+    LOGOUT,
+
+    // Каталог товаров
+    GET_PRODUCTS,
+    GET_PRODUCT_BY_ID,
+    CREATE_PRODUCT,
+    UPDATE_PRODUCT,
+    DEACTIVATE_PRODUCT,
+
+    // Категории товаров
+    GET_CATEGORIES,
+    CREATE_CATEGORY,
+    UPDATE_CATEGORY,
+
+    // Покупатели
+    GET_CUSTOMERS,
+    GET_CUSTOMER_BY_ID,
+    CREATE_CUSTOMER,
+    UPDATE_CUSTOMER,
+
+    // Продажи
+    GET_SALES,
+    GET_SALE_BY_ID,
+    CREATE_SALE,
+    CANCEL_SALE,
+
+    // Рассрочка
+    CREATE_INSTALLMENT_APPLICATION,
+    GET_INSTALLMENT_APPLICATIONS,
+    GET_INSTALLMENT_APPLICATION_BY_ID,
+    REVIEW_APPLICATION,
+    GET_PAYMENT_SCHEDULE,
+
+    // Платежи
+    REGISTER_PAYMENT,
+    GET_PAYMENTS,
+
+    // Пользователи
+    GET_USERS,
+    GET_USER_BY_ID,
+    CREATE_USER,
+    UPDATE_USER,
+    BLOCK_USER,
+
+    // Отчёты и журнал
+    GENERATE_REPORT,
+    GET_AUDIT_LOG,
+
+    // Завершение соединения
+    DISCONNECT
+}
+
+
+============================================================
+FILE: common\src\main\java\by\bsuir\computersales\common\protocol\ErrorCode.java
+============================================================
+
+package by.bsuir.computersales.common.protocol;
+
+/**
+ * Коды ошибок, возвращаемых сервером.
+ */
+public enum ErrorCode {
+
+    VALIDATION,
+    ACCESS_DENIED,
+    AUTHENTICATION_REQUIRED,
+    INVALID_CREDENTIALS,
+    INSUFFICIENT_STOCK,
+    BUSINESS_RULE,
+    NOT_FOUND,
+    INTERNAL
+}
+
+
+============================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\database\DatabaseManager.java
+============================================================
+
+package by.bsuir.computersales.server.database;
+
+import by.bsuir.computersales.server.config.ServerConfig;
+import by.bsuir.computersales.server.exception.DataAccessException;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+
+/**
+ * Управляет пулом подключений к базе данных
+ * и транзакциями приложения.
+ */
+public class DatabaseManager implements AutoCloseable {
+
+    private final HikariDataSource dataSource;
+
+    /**
+     * Операция, выполняемая внутри транзакции.
+     *
+     * @param <T> тип результата
+     */
+    @FunctionalInterface
+    public interface TransactionCallback<T> {
+
+        T execute(Connection connection) throws SQLException;
+    }
+
+    /**
+     * Создаёт пул подключений на основании настроек сервера.
+     *
+     * @param serverConfig настройки сервера и базы данных
+     */
+    public DatabaseManager(ServerConfig serverConfig) {
+        if (serverConfig == null) {
+            throw new IllegalArgumentException(
+                    "Настройки сервера не должны быть null"
+            );
+        }
+
+        HikariConfig config = new HikariConfig();
+
+        config.setJdbcUrl(serverConfig.getDatabaseUrl());
+        config.setUsername(serverConfig.getDatabaseUsername());
+        config.setPassword(serverConfig.getDatabasePassword());
+
+        config.setMaximumPoolSize(serverConfig.getDatabasePoolSize());
+        config.setPoolName("ComputerSalesPool");
+        config.setConnectionTimeout(30000);
+
+        this.dataSource = new HikariDataSource(config);
+    }
+
+    /**
+     * Возвращает соединение с базой данных.
+     *
+     * @return соединение JDBC
+     * @throws SQLException если получить соединение не удалось
+     */
+    public Connection getConnection() throws SQLException {
+        return dataSource.getConnection();
+    }
+
+    /**
+     * Выполняет операцию в одной транзакции.
+     *
+     * Если операция завершается успешно, изменения фиксируются.
+     * Если возникает ошибка, все изменения отменяются.
+     *
+     * @param callback операция, выполняемая в транзакции
+     * @param <T> тип результата
+     * @return результат операции
+     */
+    public <T> T executeInTransaction(
+            TransactionCallback<T> callback) {
+
+        if (callback == null) {
+            throw new IllegalArgumentException(
+                    "Операция транзакции не должна быть null"
+            );
+        }
+
+        try (Connection connection = getConnection()) {
+
+            connection.setAutoCommit(false);
+
+            try {
+                T result = callback.execute(connection);
+
+                connection.commit();
+
+                return result;
+
+            } catch (SQLException | RuntimeException exception) {
+
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackException) {
+                    exception.addSuppressed(rollbackException);
+                }
+
+                if (exception instanceof SQLException) {
+                    throw new DataAccessException(
+                            "Ошибка выполнения транзакции",
+                            exception
+                    );
+                }
+
+                throw (RuntimeException) exception;
+            }
+
+        } catch (SQLException exception) {
+            throw new DataAccessException(
+                    "Не удалось выполнить транзакцию с базой данных",
+                    exception
+            );
+        }
+    }
+
+    /**
+     * Закрывает пул подключений.
+     */
+    @Override
+    public void close() {
+        if (dataSource != null && !dataSource.isClosed()) {
+            dataSource.close();
+        }
+    }
+}
+
+
+============================================================
+FILE: server\src\main\java\by\bsuir\computersales\server\network\ServerMain.java
+============================================================
+
+package by.bsuir.computersales.server.network;
+
+import by.bsuir.computersales.server.config.ServerConfig;
+import by.bsuir.computersales.server.dao.UserDaoImpl;
+import by.bsuir.computersales.server.database.DatabaseManager;
+import by.bsuir.computersales.server.security.PasswordHasher;
+import by.bsuir.computersales.server.security.SessionManager;
+import by.bsuir.computersales.server.service.AuthService;
+import by.bsuir.computersales.server.dao.ProductDaoImpl;
+import by.bsuir.computersales.server.dao.ProductDao;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.file.Path;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+
+/**
+ * Главный класс многопоточного сервера.
+ *
+ * Отвечает за загрузку конфигурации,
+ * подключение к базе данных, авторизацию
+ * пользователей и приём клиентских подключений.
+ */
+public class ServerMain {
+
+    private final ServerConfig config;
+    private final DatabaseManager databaseManager;
+    private final ExecutorService clientPool;
+    private final AuthService authService;
+    private final ProductDao productDao;
+
+    private ServerSocket serverSocket;
+    private volatile boolean running;
+
+    /**
+     * Создаёт сервер и необходимые компоненты приложения.
+     *
+     * @param config настройки сервера
+     */
+    public ServerMain(ServerConfig config) {
+        if (config == null) {
+            throw new IllegalArgumentException(
+                    "Конфигурация сервера не должна быть null"
+            );
+        }
+
+        this.config = config;
+
+        // Создаём менеджер подключений к базе данных.
+        this.databaseManager = new DatabaseManager(config);
+
+        // Создаём DAO для работы с пользователями.
+        UserDaoImpl userDao = new UserDaoImpl(databaseManager);
+
+        // Создаём DAO для работы с каталогом товаров.
+        // Создаём DAO для работы с каталогом товаров.
+        this.productDao = new ProductDaoImpl(databaseManager);
+
+        // Создаём средство проверки паролей.
+        PasswordHasher passwordHasher = new PasswordHasher();
+
+        // Создаём менеджер пользовательских сессий.
+        SessionManager sessionManager = new SessionManager(
+                config.getSessionTimeoutSeconds()
+        );
+
+        // Создаём сервис авторизации.
+        this.authService = new AuthService(
+                userDao,
+                passwordHasher,
+                sessionManager
+        );
+
+        // Создаём пул потоков для обработки клиентов.
+        this.clientPool = Executors.newFixedThreadPool(
+                config.getThreadPoolSize()
+        );
+    }
+
+    /**
+     * Запускает сервер и начинает принимать подключения.
+     */
+    public void start() throws IOException {
+        if (running) {
+            throw new IllegalStateException(
+                    "Сервер уже запущен"
+            );
+        }
+
+        serverSocket = new ServerSocket();
+
+        serverSocket.bind(new InetSocketAddress(
+                config.getServerHost(),
+                config.getServerPort()
+        ));
+
+        running = true;
+
+        System.out.println("Сервер запущен.");
+        System.out.println(
+                "Адрес: " + config.getServerHost()
+        );
+        System.out.println(
+                "Порт: " + config.getServerPort()
+        );
+        System.out.println(
+                "Размер пула потоков: "
+                        + config.getThreadPoolSize()
+        );
+
+        try {
+            while (running) {
+                Socket clientSocket = serverSocket.accept();
+
+                System.out.println(
+                        "Подключился клиент: "
+                                + clientSocket.getRemoteSocketAddress()
+                );
+
+                // Передаём клиенту общий сервис авторизации.
+                // Каждый ClientHandler работает в отдельном потоке.
+                clientPool.execute(
+                        new ClientHandler(
+                                clientSocket,
+                                authService,
+                                productDao
+                        )
+                );
+            }
+
+        } catch (IOException e) {
+            if (running) {
+                throw e;
+            }
+
+        } finally {
+            stop();
+        }
+    }
+
+    /**
+     * Останавливает сервер и освобождает ресурсы.
+     */
+    public void stop() {
+        running = false;
+
+        if (serverSocket != null && !serverSocket.isClosed()) {
+            try {
+                serverSocket.close();
+            } catch (IOException e) {
+                System.err.println(
+                        "Ошибка закрытия серверного сокета: "
+                                + e.getMessage()
+                );
+            }
+        }
+
+        clientPool.shutdown();
+
+        try {
+            if (!clientPool.awaitTermination(5, TimeUnit.SECONDS)) {
+                clientPool.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            clientPool.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+
+        databaseManager.close();
+
+        System.out.println("Сервер остановлен.");
+    }
+
+    /**
+     * Точка входа в приложение.
+     *
+     * Первый аргумент командной строки позволяет
+     * указать путь к файлу конфигурации.
+     */
+    public static void main(String[] args) {
+        Path configPath = args.length > 0
+                ? Path.of(args[0])
+                : Path.of("server.properties");
+
+        try {
+            ServerConfig config = ServerConfig.load(configPath);
+
+            ServerMain server = new ServerMain(config);
+
+            Runtime.getRuntime().addShutdownHook(
+                    new Thread(server::stop)
+            );
+
+            server.start();
+
+        } catch (Exception e) {
+            System.err.println(
+                    "Не удалось запустить сервер: "
+                            + e.getMessage()
+            );
+
+            e.printStackTrace();
+        }
+    }
+}
+

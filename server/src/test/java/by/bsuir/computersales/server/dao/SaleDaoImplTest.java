@@ -9,7 +9,13 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import by.bsuir.computersales.common.model.SaleStatus;
+import by.bsuir.computersales.server.exception.ValidationException;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -229,6 +235,182 @@ class SaleDaoImplTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> saleDao.findByUserId(-1L)
+        );
+    }
+    @Test
+    void lockByIdShouldLockExistingSale() {
+        Long saleId = 1L;
+
+        assertDoesNotThrow(() ->
+                databaseManager.executeInTransaction(connection -> {
+                    saleDao.lockById(connection, saleId);
+                    return null;
+                })
+        );
+    }
+
+    @Test
+    void lockByIdShouldThrowWhenSaleDoesNotExist() {
+        assertThrows(
+                ValidationException.class,
+                () -> databaseManager.executeInTransaction(
+                        connection -> {
+                            saleDao.lockById(connection, 999999L);
+                            return null;
+                        }
+                )
+        );
+    }
+
+    @Test
+    void lockByIdShouldRejectNullConnection() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> saleDao.lockById(null, 1L)
+        );
+    }
+
+    @Test
+    void lockByIdShouldRejectInvalidSaleId() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> databaseManager.executeInTransaction(
+                        connection -> {
+                            saleDao.lockById(connection, 0L);
+                            return null;
+                        }
+                )
+        );
+    }
+
+    @Test
+    void updateStatusShouldRollbackChangesWhenTransactionFails()
+            throws SQLException {
+
+        Long saleId = 1L;
+
+        SaleStatus originalStatus = saleDao.findById(saleId)
+                .orElseThrow()
+                .getStatus();
+
+        SaleStatus temporaryStatus =
+                originalStatus == SaleStatus.PAID
+                        ? SaleStatus.REGISTERED
+                        : SaleStatus.PAID;
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> databaseManager.executeInTransaction(
+                        connection -> {
+
+                            saleDao.lockById(connection, saleId);
+
+                            saleDao.updateStatus(
+                                    connection,
+                                    saleId,
+                                    temporaryStatus
+                            );
+
+                            try (PreparedStatement statement =
+                                         connection.prepareStatement(
+                                                 """
+                                                 SELECT status
+                                                 FROM sales
+                                                 WHERE sale_id = ?
+                                                 """
+                                         )) {
+
+                                statement.setLong(1, saleId);
+
+                                try (ResultSet resultSet =
+                                             statement.executeQuery()) {
+
+                                    assertTrue(resultSet.next());
+
+                                    assertEquals(
+                                            temporaryStatus.name(),
+                                            resultSet.getString("status")
+                                    );
+                                }
+                            }
+
+                            // Намеренно вызываем ошибку,
+                            // чтобы проверить rollback.
+                            throw new IllegalStateException(
+                                    "Тестовый rollback"
+                            );
+                        }
+                )
+        );
+
+        SaleStatus statusAfterRollback =
+                saleDao.findById(saleId)
+                        .orElseThrow()
+                        .getStatus();
+
+        assertEquals(originalStatus, statusAfterRollback);
+    }
+
+    @Test
+    void updateStatusShouldRejectNullConnection() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> saleDao.updateStatus(
+                        null,
+                        1L,
+                        SaleStatus.PAID
+                )
+        );
+    }
+
+    @Test
+    void updateStatusShouldRejectNullStatus() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> databaseManager.executeInTransaction(
+                        connection -> {
+                            saleDao.updateStatus(
+                                    connection,
+                                    1L,
+                                    null
+                            );
+                            return null;
+                        }
+                )
+        );
+    }
+
+    @Test
+    void updateStatusShouldRejectInvalidSaleId() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> databaseManager.executeInTransaction(
+                        connection -> {
+                            saleDao.updateStatus(
+                                    connection,
+                                    0L,
+                                    SaleStatus.PAID
+                            );
+                            return null;
+                        }
+                )
+        );
+    }
+
+    @Test
+    void updateStatusShouldThrowWhenSaleDoesNotExist() {
+        assertThrows(
+                ValidationException.class,
+                () -> databaseManager.executeInTransaction(
+                        connection -> {
+                            saleDao.updateStatus(
+                                    connection,
+                                    999999L,
+                                    SaleStatus.PAID
+                            );
+                            return null;
+                        }
+                )
         );
     }
 }
