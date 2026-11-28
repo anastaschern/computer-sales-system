@@ -1,17 +1,12 @@
-
 package by.bsuir.computersales.common.model;
 
 /**
- * Статус продажи.
+ * Статусы продажи.
  */
 public enum SaleStatus {
-
-    // Продажа оформлена, но ещё не оплачена.
-    REGISTERED,
-
-    // Продажа оплачена.
+    CREATED,
+    REGISTERED,  // <-- если используется в БД
     PAID,
-
-    // Продажа полностью завершена.
-    COMPLETED
+    COMPLETED,
+    CANCELLED
 }

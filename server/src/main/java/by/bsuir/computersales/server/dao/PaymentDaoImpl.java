@@ -116,7 +116,47 @@ public class PaymentDaoImpl implements PaymentDao {
                 "получить платежи по заявке на рассрочку"
         );
     }
+    // Пример метода для регистрации платежа с блокировкой
+    public void registerPayment(Payment payment) {
+        try (Connection connection = databaseManager.getConnection()) {
+            connection.setAutoCommit(false); // начало транзакции
 
+            try {
+                // 1. Блокируем строку заявки (или продажи), чтобы избежать гонки
+                String lockSql = """
+                SELECT application_id
+                FROM installment_applications
+                WHERE application_id = ?
+                FOR UPDATE
+                """;
+                try (PreparedStatement lockStmt = connection.prepareStatement(lockSql)) {
+                    lockStmt.setLong(1, payment.getApplicationId());
+                    lockStmt.executeQuery(); // блокировка
+                }
+
+                // 2. Теперь проверяем остаток (никто другой не может изменить строку)
+                // ... (ваша логика проверки)
+
+                // 3. Вставляем платёж
+                String insertSql = """
+                INSERT INTO payments (sale_id, application_id, payment_number,
+                                      payment_date, amount, payment_method, payment_purpose)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """;
+                try (PreparedStatement insertStmt = connection.prepareStatement(insertSql)) {
+                    // ... (установка параметров)
+                    insertStmt.executeUpdate();
+                }
+
+                connection.commit(); // фиксация транзакции
+            } catch (SQLException e) {
+                connection.rollback(); // откат при ошибке
+                throw new DataAccessException("Ошибка при регистрации платежа", e);
+            }
+        } catch (SQLException e) {
+            throw new DataAccessException("Ошибка подключения к БД", e);
+        }
+    }
     /**
      * Регистрирует новый платёж.
      */
