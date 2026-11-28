@@ -402,6 +402,66 @@ class PaymentServiceTest {
     }
 
     @Test
+    void shouldRejectSkippingUnpaidSchedulePayment() {
+        Payment downPayment = createPayment(
+                PaymentPurpose.DOWN_PAYMENT,
+                "300.00",
+                null,
+                null
+        );
+
+        paymentService.registerPayment(
+                downPayment,
+                operator,
+                applicationId
+        );
+
+        paymentScheduleDao.create(
+                new PaymentScheduleItem(
+                        application,
+                        2,
+                        LocalDate.of(2027, 2, 15),
+                        new BigDecimal("1200.00")
+                )
+        );
+
+        Payment secondSchedulePayment = createPayment(
+                PaymentPurpose.INSTALLMENT_PAYMENT,
+                "100.00",
+                application,
+                2
+        );
+
+        assertThrows(
+                BusinessRuleException.class,
+                () -> paymentService.registerPayment(
+                        secondSchedulePayment,
+                        operator
+                )
+        );
+
+        List<Payment> payments =
+                paymentDao.findBySaleId(sale.getSaleId());
+
+        assertTrue(
+                payments.stream().noneMatch(payment ->
+                        secondSchedulePayment.getReferenceNumber().equals(
+                                payment.getReferenceNumber()
+                        )
+                ),
+                "Платёж № 2 не должен сохраняться до оплаты платежа № 1"
+        );
+
+        InstallmentApplication updatedApplication =
+                applicationDao.findById(applicationId)
+                        .orElseThrow();
+
+        assertEquals(
+                InstallmentApplicationStatus.APPROVED,
+                updatedApplication.getStatus()
+        );
+    }
+    @Test
     void shouldRejectScheduleOverpayment() {
         Payment downPayment = createPayment(
                 PaymentPurpose.DOWN_PAYMENT,
