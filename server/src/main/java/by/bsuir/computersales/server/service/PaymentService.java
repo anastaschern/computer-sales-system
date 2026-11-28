@@ -81,6 +81,8 @@ public class PaymentService {
     /**
      * Регистрирует платёж с проверкой полномочий сотрудника.
      *
+     * Используется для полной оплаты и платежей по графику.
+     *
      * @param payment регистрируемый платёж
      * @param operator сотрудник, регистрирующий платёж
      * @return зарегистрированный платёж с идентификатором
@@ -92,22 +94,69 @@ public class PaymentService {
         validateOperator(operator);
         validatePayment(payment);
 
-        BigDecimal amount = normalizeAmount(payment.getAmount());
+        if (payment.getPaymentPurpose() == PaymentPurpose.DOWN_PAYMENT) {
+            throw new ValidationException(
+                    "Для регистрации первоначального взноса "
+                            + "необходимо передать идентификатор заявки"
+            );
+        }
 
-        payment.setAmount(amount);
+        payment.setAmount(normalizeAmount(payment.getAmount()));
 
         return databaseManager.executeInTransaction(connection -> {
-
-            PaymentPurpose purpose = payment.getPaymentPurpose();
-
-            if (purpose == PaymentPurpose.FULL_PAYMENT) {
+            if (payment.getPaymentPurpose() == PaymentPurpose.FULL_PAYMENT) {
                 return registerFullPayment(connection, payment);
             }
 
-            return registerInstallmentPayment(connection, payment);
+            return registerInstallmentPayment(
+                    connection,
+                    payment,
+                    payment.getApplication().getApplicationId()
+            );
         });
     }
 
+    /**
+     * Регистрирует первоначальный взнос по заявке на рассрочку.
+     *
+     * Идентификатор заявки передаётся отдельно, поскольку
+     * первоначальный взнос не содержит application_id в таблице payments.
+     *
+     * @param payment регистрируемый первоначальный взнос
+     * @param operator сотрудник, регистрирующий платёж
+     * @param applicationId идентификатор заявки на рассрочку
+     * @return зарегистрированный платёж
+     */
+    public Payment registerPayment(
+            Payment payment,
+            User operator,
+            Long applicationId
+    ) {
+        validateOperator(operator);
+        validatePayment(payment);
+
+        if (payment.getPaymentPurpose() != PaymentPurpose.DOWN_PAYMENT) {
+            throw new ValidationException(
+                    "Этот метод предназначен только для первоначального взноса"
+            );
+        }
+
+        if (applicationId == null || applicationId <= 0) {
+            throw new ValidationException(
+                    "Необходимо указать корректный идентификатор заявки"
+            );
+        }
+
+        payment.setAmount(normalizeAmount(payment.getAmount()));
+
+        return databaseManager.executeInTransaction(connection ->
+                registerInstallmentPayment(
+                        connection,
+                        payment,
+                        applicationId
+                )
+        );
+    }
     /**
      * Проверяет сотрудника, выполняющего операцию.
      */
@@ -324,17 +373,21 @@ public class PaymentService {
         return payment;
     }
 
+
     /**
      * Регистрирует первоначальный взнос
      * или очередной платёж по рассрочке.
      */
     private Payment registerInstallmentPayment(
             java.sql.Connection connection,
-            Payment payment
+            Payment payment,
+            Long applicationId
     ) {
-
-        Long applicationId =
-                payment.getApplication().getApplicationId();
+        if (applicationId == null || applicationId <= 0) {
+            throw new ValidationException(
+                    "Необходимо указать корректный идентификатор заявки"
+            );
+        }
 
         // Сериализуем все платежи по одной заявке.
         applicationDao.lockById(connection, applicationId);
@@ -345,15 +398,25 @@ public class PaymentService {
                                 "Заявка на рассрочку не найдена"
                         ));
 
-        Sale sale = application.getSale();
+        Sale applicationSale = application.getSale();
 
-        if (sale == null || sale.getSaleId() == null) {
+        if (applicationSale == null
+                || applicationSale.getSaleId() == null) {
             throw new ValidationException(
                     "У заявки отсутствует продажа"
             );
         }
 
-        sale = saleDao.findById(sale.getSaleId())
+        if (!Objects.equals(
+                applicationSale.getSaleId(),
+                payment.getSale().getSaleId()
+        )) {
+            throw new BusinessRuleException(
+                    "Указанная заявка не относится к выбранной продаже"
+            );
+        }
+
+        Sale sale = saleDao.findById(applicationSale.getSaleId())
                 .orElseThrow(() -> new ValidationException(
                         "Продажа заявки не найдена"
                 ));
@@ -380,9 +443,7 @@ public class PaymentService {
             );
         }
 
-        if (payment.getPaymentPurpose()
-                == PaymentPurpose.DOWN_PAYMENT) {
-
+        if (payment.getPaymentPurpose() == PaymentPurpose.DOWN_PAYMENT) {
             return registerDownPayment(
                     connection,
                     payment,
@@ -449,9 +510,7 @@ public class PaymentService {
         }
 
         List<Payment> existingPayments =
-                paymentDao.findByApplicationId(
-                        application.getApplicationId()
-                );
+                paymentDao.findBySaleId(sale.getSaleId());
 
         BigDecimal alreadyPaid = sumPayments(
                 existingPayments,
@@ -514,9 +573,7 @@ public class PaymentService {
         }
 
         List<Payment> existingPayments =
-                paymentDao.findByApplicationId(
-                        application.getApplicationId()
-                );
+                paymentDao.findBySaleId(sale.getSaleId());
 
         // Первоначальный взнос должен быть полностью оплачен.
         BigDecimal downPaymentPaid = sumPayments(
