@@ -430,6 +430,35 @@ class PaymentServiceTest {
                         operator
                 )
         );
+
+        List<Payment> payments =
+                paymentDao.findBySaleId(sale.getSaleId());
+
+        assertTrue(
+                payments.stream().noneMatch(payment ->
+                        schedulePayment.getReferenceNumber().equals(
+                                payment.getReferenceNumber()
+                        )
+                ),
+                "Отклонённый платёж не должен сохраняться"
+        );
+
+        InstallmentApplication updatedApplication =
+                applicationDao.findById(applicationId)
+                        .orElseThrow();
+
+        Sale updatedSale = saleDao.findById(sale.getSaleId())
+                .orElseThrow();
+
+        assertEquals(
+                InstallmentApplicationStatus.APPROVED,
+                updatedApplication.getStatus()
+        );
+
+        assertEquals(
+                SaleStatus.REGISTERED,
+                updatedSale.getStatus()
+        );
     }
 
     @Test
