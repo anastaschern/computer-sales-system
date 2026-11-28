@@ -213,7 +213,78 @@ class PaymentServiceTest {
                 updated.getStatus()
         );
     }
+    @Test
+    void shouldSupportPartialDownPaymentAndRejectRepeatedPayment() {
+        Payment firstPayment = createPayment(
+                PaymentPurpose.DOWN_PAYMENT,
+                "100.00",
+                null,
+                null
+        );
 
+        Payment firstResult = paymentService.registerPayment(
+                firstPayment,
+                operator,
+                applicationId
+        );
+
+        assertNotNull(firstResult.getPaymentId());
+
+        Payment secondPayment = createPayment(
+                PaymentPurpose.DOWN_PAYMENT,
+                "200.00",
+                null,
+                null
+        );
+
+        Payment secondResult = paymentService.registerPayment(
+                secondPayment,
+                operator,
+                applicationId
+        );
+
+        assertNotNull(secondResult.getPaymentId());
+
+        Payment repeatedPayment = createPayment(
+                PaymentPurpose.DOWN_PAYMENT,
+                "1.00",
+                null,
+                null
+        );
+
+        assertThrows(
+                BusinessRuleException.class,
+                () -> paymentService.registerPayment(
+                        repeatedPayment,
+                        operator,
+                        applicationId
+                )
+        );
+
+        List<Payment> payments =
+                paymentDao.findBySaleId(sale.getSaleId());
+
+        BigDecimal totalDownPayment = payments.stream()
+                .filter(payment ->
+                        payment.getPaymentPurpose()
+                                == PaymentPurpose.DOWN_PAYMENT
+                )
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        assertEquals(
+                0,
+                totalDownPayment.compareTo(new BigDecimal("300.00"))
+        );
+
+        assertTrue(
+                payments.stream().noneMatch(payment ->
+                        repeatedPayment.getReferenceNumber().equals(
+                                payment.getReferenceNumber()
+                        )
+                )
+        );
+    }
     @Test
     void shouldRejectSchedulePaymentBeforeFullDownPayment() {
         Payment payment = createPayment(
