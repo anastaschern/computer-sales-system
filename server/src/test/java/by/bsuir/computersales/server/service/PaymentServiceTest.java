@@ -285,6 +285,94 @@ class PaymentServiceTest {
                 )
         );
     }
+
+    @Test
+    void shouldSupportPartialSchedulePayment() {
+        Payment downPayment = createPayment(
+                PaymentPurpose.DOWN_PAYMENT,
+                "300.00",
+                null,
+                null
+        );
+
+        paymentService.registerPayment(
+                downPayment,
+                operator,
+                applicationId
+        );
+
+        Payment firstPart = createPayment(
+                PaymentPurpose.INSTALLMENT_PAYMENT,
+                "500.00",
+                application,
+                1
+        );
+
+        Payment firstResult = paymentService.registerPayment(
+                firstPart,
+                operator
+        );
+
+        assertNotNull(firstResult.getPaymentId());
+
+        InstallmentApplication partiallyPaidApplication =
+                applicationDao.findById(applicationId)
+                        .orElseThrow();
+
+        assertEquals(
+                InstallmentApplicationStatus.IN_PROGRESS,
+                partiallyPaidApplication.getStatus()
+        );
+
+        BigDecimal paidAmount = paymentDao.findBySaleId(sale.getSaleId())
+                .stream()
+                .filter(payment ->
+                        payment.getPaymentPurpose()
+                                == PaymentPurpose.INSTALLMENT_PAYMENT
+                )
+                .filter(payment ->
+                        payment.getPaymentNumber() == 1
+                )
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        assertEquals(
+                0,
+                paidAmount.compareTo(new BigDecimal("500.00"))
+        );
+
+        Payment secondPart = createPayment(
+                PaymentPurpose.INSTALLMENT_PAYMENT,
+                "700.00",
+                application,
+                1
+        );
+
+        Payment secondResult = paymentService.registerPayment(
+                secondPart,
+                operator
+        );
+
+        assertNotNull(secondResult.getPaymentId());
+
+        InstallmentApplication completedApplication =
+                applicationDao.findById(applicationId)
+                        .orElseThrow();
+
+        Sale updatedSale = saleDao.findById(sale.getSaleId())
+                .orElseThrow();
+
+        assertEquals(
+                InstallmentApplicationStatus.COMPLETED,
+                completedApplication.getStatus()
+        );
+
+        assertEquals(
+                SaleStatus.PAID,
+                updatedSale.getStatus()
+        );
+    }
+
     @Test
     void shouldRejectSchedulePaymentBeforeFullDownPayment() {
         Payment payment = createPayment(
